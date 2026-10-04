@@ -1,6 +1,7 @@
 export type AppErrorKind =
   | 'mic-permission-denied'
   | 'mic-unavailable'
+  | 'mic-busy'
   | 'live-unsupported'
   | 'provider-unavailable'
   | 'provider-blocked'
@@ -24,6 +25,7 @@ export interface AppError {
 const TRAITS: Record<AppErrorKind, Pick<AppError, 'retryable' | 'canSwitchToLocal'>> = {
   'mic-permission-denied': { retryable: false, canSwitchToLocal: false },
   'mic-unavailable': { retryable: true, canSwitchToLocal: false },
+  'mic-busy': { retryable: true, canSwitchToLocal: false },
   'live-unsupported': { retryable: false, canSwitchToLocal: true },
   'provider-unavailable': { retryable: true, canSwitchToLocal: true },
   'provider-blocked': { retryable: true, canSwitchToLocal: true },

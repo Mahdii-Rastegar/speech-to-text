@@ -1,3 +1,4 @@
+import { createVad } from '../../audio/vad'
 import { createAppError } from '../../errors'
 import type { CostInfo } from '../../session'
 import { delay } from '../../util/delay'
@@ -26,10 +27,17 @@ export interface DemoProviderOptions {
   finalizeDelayMs?: number
 }
 
+/** The rate of the audio a live session is fed. */
+const AUDIO_SAMPLE_RATE = 16_000
+
 /**
- * An engine that needs no microphone, model or network: it plays a script back
- * as interim and final text. It exists so the interface and the recording flow
- * can be built and tested before any real engine is wired in.
+ * An engine that needs no model or network: it plays a script back as interim
+ * and final text. It exists so the interface and the recording flow can be
+ * built and tested before any real engine is wired in.
+ *
+ * Fed with audio, it does not recognize anything, but it keeps the speaker's
+ * pace: words appear only while a voice is heard, and a pause closes the
+ * sentence so far, the way a real chunking engine will.
  */
 export function createDemoProvider(options: DemoProviderOptions): STTProvider {
   const {
@@ -61,6 +69,9 @@ export function createDemoProvider(options: DemoProviderOptions): STTProvider {
     let failTimer: ReturnType<typeof setTimeout> | undefined
     let closed = false
     let stopping: Promise<TranscriptionResult> | undefined
+    const vad = createVad({ sampleRate: AUDIO_SAMPLE_RATE })
+    /** Set by the first audio; without any, the script runs on its own clock. */
+    let pacedByVoice = false
 
     const emit = (event: LiveEvent) => listeners.forEach((listener) => listener(event))
     const elapsed = () => Date.now() - startedAt
@@ -78,8 +89,17 @@ export function createDemoProvider(options: DemoProviderOptions): STTProvider {
       emit({ type: 'final', segment })
     }
 
+    const nextLine = () => {
+      lineIndex = (lineIndex + 1) % DEMO_SCRIPT.length
+      words = wordsOfLine(lineIndex)
+    }
+
     const speakNextWord = () => {
       if (closed) return
+      if (pacedByVoice && !vad.speaking) {
+        wordTimer = setTimeout(speakNextWord, wordIntervalMs)
+        return
+      }
       wordCount += 1
       if (wordCount < words.length) {
         emit({ type: 'interim', text: words.slice(0, wordCount).join(' ') })
@@ -87,10 +107,19 @@ export function createDemoProvider(options: DemoProviderOptions): STTProvider {
         return
       }
       finalizeSpokenWords()
-      lineIndex = (lineIndex + 1) % DEMO_SCRIPT.length
-      words = wordsOfLine(lineIndex)
+      nextLine()
       segmentStartMs = elapsed() + sentencePauseMs
       wordTimer = setTimeout(speakNextWord, sentencePauseMs + wordIntervalMs)
+    }
+
+    /** The speaker paused: what was said so far becomes final, and the line carries on after it. */
+    const endPhrase = () => {
+      if (wordCount === 0) return
+      const rest = words.slice(wordCount)
+      finalizeSpokenWords()
+      if (rest.length > 0) words = rest
+      else nextLine()
+      segmentStartMs = elapsed()
     }
 
     const close = () => {
@@ -112,8 +141,12 @@ export function createDemoProvider(options: DemoProviderOptions): STTProvider {
     }
 
     return {
-      pushAudio() {
-        // The demo engine plays a script; captured audio is ignored.
+      pushAudio(samples) {
+        if (closed) return
+        pacedByVoice = true
+        for (const event of vad.process(samples)) {
+          if (event.type === 'speech-end') endPhrase()
+        }
       },
       onEvent(listener) {
         listeners.add(listener)

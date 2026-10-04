@@ -1,11 +1,12 @@
-import { createSimulatedLevel } from '@/audio/level'
+import { createLevelMeter } from '@/audio/level'
 import { createDemoAIProcessor } from '@/core/ai/providers/demo'
 import { createDemoProvider } from '@/core/stt/providers/demo'
 import { createProviderRegistry } from '@/core/stt/registry'
 
 /**
  * Composition root: the one place that decides which engines exist.
- * Until the real engines arrive, every provider here is a scripted demo.
+ * Until the real engines arrive, every provider here is a scripted demo;
+ * the microphone and its level are real.
  */
 
 /** Made-up list price so the cloud-styled demo can show an estimated cost. */
@@ -43,4 +44,5 @@ providers.register(
 
 export const aiProcessor = createDemoAIProcessor()
 
-export const levelSource = createSimulatedLevel()
+/** Loudness of the microphone while recording; silent otherwise. */
+export const levelSource = createLevelMeter()

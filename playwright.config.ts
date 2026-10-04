@@ -1,11 +1,13 @@
 import { defineConfig } from '@playwright/test'
+import { fakeMicrophoneArgs } from './tests/e2e/fakeMicrophone.ts'
 
 const PORT = 5173
 const baseURL = `http://localhost:${PORT}`
 
 /**
  * End-to-end tests run in the Microsoft Edge that is already installed
- * (`channel: 'msedge'`), so no browser download is needed.
+ * (`channel: 'msedge'`), so no browser download is needed. The microphone is
+ * a generated sound file, so tests need no audio hardware and hear no one.
  */
 export default defineConfig({
   testDir: './tests/e2e',
@@ -17,7 +19,8 @@ export default defineConfig({
     channel: 'msedge',
     locale: 'fa-IR',
     timezoneId: 'Asia/Tehran',
-    permissions: ['clipboard-read', 'clipboard-write'],
+    permissions: ['clipboard-read', 'clipboard-write', 'microphone'],
+    launchOptions: { args: fakeMicrophoneArgs() },
     trace: 'retain-on-failure',
   },
   projects: [

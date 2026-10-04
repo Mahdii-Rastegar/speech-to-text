@@ -1,5 +1,6 @@
-import { Upload } from 'lucide-react'
+import { AudioLines, MicOff, Upload } from 'lucide-react'
 import { startRecording, stopRecording } from '@/app/recordingController'
+import { useInput } from '@/app/stores/inputStore'
 import { useRecording } from '@/app/stores/recordingStore'
 import { notify } from '@/app/stores/uiStore'
 import type { RecordingPhase } from '@/core/recording/machine'
@@ -21,11 +22,43 @@ function Timer({ ms }: { ms: number }) {
       {[...durationLabel(ms)].map((character, index) => (
         <span
           key={index}
-          className={character === ':' ? 'w-[0.34em] text-center text-ink-3' : 'w-[0.58em] text-center'}
+          className={
+            character === ':' ? 'w-[0.34em] text-center text-ink-3' : 'w-[0.58em] text-center'
+          }
         >
           {character}
         </span>
       ))}
+    </span>
+  )
+}
+
+/** What the microphone hears right now: a voice, a pause, or nothing at all. */
+function InputBadge() {
+  const speaking = useInput((state) => state.speaking)
+  const noSignal = useInput((state) => state.noSignal)
+
+  if (noSignal) {
+    return (
+      <span
+        title={fa.recorder.noSignalHint}
+        className="inline-flex h-6 items-center gap-1.5 rounded-full border border-rec/40 px-2 text-xs text-rec"
+      >
+        <MicOff aria-hidden="true" className="size-3.5" />
+        {fa.recorder.noSignal}
+        <span className="sr-only">{fa.recorder.noSignalHint}</span>
+      </span>
+    )
+  }
+  return (
+    <span
+      className={cn(
+        'inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-xs transition-colors duration-150',
+        speaking ? 'border-live/45 bg-live/10 text-live' : 'border-line-strong text-ink-3',
+      )}
+    >
+      <AudioLines aria-hidden="true" className="size-3.5" />
+      {speaking ? fa.recorder.speech : fa.recorder.silence}
     </span>
   )
 }
@@ -41,13 +74,16 @@ function RecorderStatus({
 }) {
   if (phase === 'recording' || phase === 'finalizing') {
     return (
-      <div className={cn('flex items-center gap-3.5', className)}>
+      <div className={cn('flex items-center gap-3', className)}>
         <Timer ms={elapsedMs} />
         {phase === 'recording' ? (
-          <span className="inline-flex items-center gap-2 text-sm text-rec">
-            <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-rec" />
-            {fa.recorder.recording}
-          </span>
+          <>
+            <span className="inline-flex items-center gap-2 text-sm text-rec">
+              <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-rec" />
+              {fa.recorder.recording}
+            </span>
+            <InputBadge />
+          </>
         ) : (
           <span className="text-sm text-ink-2">{fa.recorder.finalizing}</span>
         )}

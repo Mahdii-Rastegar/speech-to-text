@@ -3,6 +3,7 @@
 // Images land in test-results/screens/ (git-ignored).
 import { mkdir } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
+import { fakeMicrophoneArgs } from '../tests/e2e/fakeMicrophone.ts'
 
 const baseURL = process.env.BASE_URL ?? 'http://localhost:5173'
 const outDir = 'test-results/screens'
@@ -21,13 +22,15 @@ const viewports = {
 }
 
 await mkdir(outDir, { recursive: true })
-const browser = await chromium.launch({ channel: 'msedge' })
+// A generated sound file stands in for the microphone, so the recording shots need no hardware.
+const browser = await chromium.launch({ channel: 'msedge', args: fakeMicrophoneArgs() })
 
 for (const [name, options] of Object.entries(viewports)) {
   const context = await browser.newContext({
     ...options,
     locale: 'fa-IR',
     timezoneId: 'Asia/Tehran',
+    permissions: ['microphone'],
   })
   const page = await context.newPage()
   const shot = (state) => page.screenshot({ path: `${outDir}/${name}-${state}.png` })

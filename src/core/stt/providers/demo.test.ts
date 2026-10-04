@@ -1,10 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { noise, silence } from '../../audio/testSignals'
 import type { LiveEvent } from '../provider'
 import { joinSegments } from '../provider'
 import { createDemoProvider } from './demo'
 import { DEMO_SCRIPT } from './demoScript'
 
-const TIMING = { firstWordDelayMs: 100, wordIntervalMs: 50, sentencePauseMs: 100, finalizeDelayMs: 20 }
+const TIMING = {
+  firstWordDelayMs: 100,
+  wordIntervalMs: 50,
+  sentencePauseMs: 100,
+  finalizeDelayMs: 20,
+}
 
 const localDemo = () =>
   createDemoProvider({
@@ -39,7 +45,10 @@ describe('demo provider', () => {
       models: [{ id: 'whisper-large-v3' }],
       usdPerAudioSecond: 0.00001,
     })
-    expect(provider.getCapabilities()).toMatchObject({ offline: false, billing: 'per-audio-second' })
+    expect(provider.getCapabilities()).toMatchObject({
+      offline: false,
+      billing: 'per-audio-second',
+    })
     expect(provider.estimateCost(100, 'whisper-large-v3')).toEqual({
       amountUsd: 0.001,
       estimated: true,
@@ -90,6 +99,32 @@ describe('demo provider', () => {
     const second = session.stop()
     await vi.advanceTimersByTimeAsync(TIMING.finalizeDelayMs)
     expect(await second).toBe(await first)
+  })
+
+  it('follows the speaker once it is fed audio: no words in silence, a final segment at a pause', () => {
+    const session = localDemo().transcribeStream!({ model: 'large-v3-turbo', language: 'auto' })
+    const events: LiveEvent[] = []
+    session.onEvent((event) => events.push(event))
+
+    session.pushAudio(silence(500, 16_000))
+    vi.advanceTimersByTime(2_000)
+    expect(events).toEqual([])
+
+    session.pushAudio(noise(500, 16_000))
+    vi.advanceTimersByTime(TIMING.wordIntervalMs * 2)
+    const interims = events.filter((event) => event.type === 'interim')
+    expect(interims.length).toBeGreaterThan(0)
+    expect(events.some((event) => event.type === 'final')).toBe(false)
+
+    session.pushAudio(silence(1_000, 16_000))
+    const last = events.at(-1)
+    expect(last).toMatchObject({ type: 'final' })
+    expect(last).toMatchObject({ segment: { text: interims.at(-1)!.text } })
+
+    const eventCount = events.length
+    vi.advanceTimersByTime(2_000)
+    expect(events).toHaveLength(eventCount)
+    session.abort()
   })
 
   it('fails with a provider error when asked to simulate one', () => {

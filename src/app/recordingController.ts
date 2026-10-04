@@ -1,4 +1,7 @@
-import { createAppError, type AppErrorKind } from '@/core/errors'
+import { CAPTURE_SAMPLE_RATE, openMicrophone, type MicrophoneCapture } from '@/audio/microphone'
+import { SILENCE_DB } from '@/core/audio/signal'
+import { createVad } from '@/core/audio/vad'
+import { createAppError, type AppError, type AppErrorKind } from '@/core/errors'
 import { isBusy } from '@/core/recording/machine'
 import {
   addCosts,
@@ -14,7 +17,8 @@ import {
   type STTProvider,
   type TranscriptionResult,
 } from '@/core/stt/provider'
-import { aiProcessor, FALLBACK_PROVIDER_ID, providers } from './services'
+import { aiProcessor, FALLBACK_PROVIDER_ID, levelSource, providers } from './services'
+import { inputStore, resetInput } from './stores/inputStore'
 import { dispatchRecording, recordingStore } from './stores/recordingStore'
 import {
   addSession,
@@ -27,7 +31,13 @@ import {
 import { settingsStore, updateSettings } from './stores/settingsStore'
 import { notify, uiStore } from './stores/uiStore'
 
+/** Quieter than any open microphone in a real room: the input is muted or disconnected. */
+const NO_SIGNAL_DB = SILENCE_DB + 10
+/** How long the input must stay that quiet before the user is told. */
+const NO_SIGNAL_AFTER_MS = 3000
+
 interface ActiveRun {
+  capture: MicrophoneCapture
   live: LiveSession
   unsubscribe: () => void
   providerId: string
@@ -49,9 +59,42 @@ export function resolveModel(provider: STTProvider, settings: Settings): string 
   return (chosen ?? provider.models[0])?.id ?? ''
 }
 
+/** Releases the microphone and everything that was following it. */
 function endRun(): void {
+  activeRun?.capture.stop()
   activeRun?.unsubscribe()
   activeRun = null
+  levelSource.reset()
+  resetInput()
+}
+
+function failRun(error: AppError): void {
+  activeRun?.live.abort()
+  endRun()
+  dispatchRecording({ type: 'FAILED', error, at: Date.now() })
+}
+
+/**
+ * Follows the captured audio for the interface: the level for the voice line,
+ * whether a voice is being heard, and whether anything is arriving at all.
+ */
+function createInputMonitor(): (samples: Float32Array) => void {
+  const vad = createVad({ sampleRate: CAPTURE_SAMPLE_RATE })
+  let quietMs = 0
+
+  return (samples) => {
+    levelSource.push(samples)
+    vad.process(samples)
+
+    const blockMs = (samples.length / CAPTURE_SAMPLE_RATE) * 1000
+    quietMs = vad.levelDb < NO_SIGNAL_DB ? quietMs + blockMs : 0
+
+    const next = { speaking: vad.speaking, noSignal: quietMs >= NO_SIGNAL_AFTER_MS }
+    const current = inputStore.getState()
+    if (current.speaking !== next.speaking || current.noSignal !== next.noSignal) {
+      inputStore.setState(next, true)
+    }
+  }
 }
 
 function handleLiveEvent(event: LiveEvent): void {
@@ -63,13 +106,17 @@ function handleLiveEvent(event: LiveEvent): void {
       dispatchRecording({ type: 'FINAL', segment: event.segment })
       break
     case 'error':
-      endRun()
-      dispatchRecording({ type: 'FAILED', error: event.error, at: Date.now() })
+      failRun(event.error)
       break
   }
 }
 
+/** Starts a recording. Must be called from a click or tap, which the microphone request needs. */
 export function startRecording(): void {
+  void beginRecording()
+}
+
+async function beginRecording(): Promise<void> {
   if (isBusy(recordingStore.getState().phase)) return
 
   const settings = settingsStore.getState()
@@ -89,10 +136,23 @@ export function startRecording(): void {
     return
   }
 
+  const opened = await openMicrophone()
+  if (recordingStore.getState().phase !== 'starting') {
+    // The request was dropped while the permission prompt was open.
+    if (opened.ok) opened.capture.stop()
+    return
+  }
+  if (!opened.ok) {
+    dispatchRecording({ type: 'FAILED', error: opened.error, at: Date.now() })
+    return
+  }
+  const { capture } = opened
+
   let live: LiveSession
   try {
     live = provider.transcribeStream({ model, language: settings.language })
   } catch (cause) {
+    capture.stop()
     dispatchRecording({
       type: 'FAILED',
       error: createAppError('unknown', cause instanceof Error ? cause.message : undefined),
@@ -101,7 +161,15 @@ export function startRecording(): void {
     return
   }
 
+  const monitorInput = createInputMonitor()
+  capture.onAudio((samples) => {
+    monitorInput(samples)
+    live.pushAudio(samples)
+  })
+  capture.onEnded(failRun)
+
   activeRun = {
+    capture,
     live,
     unsubscribe: live.onEvent(handleLiveEvent),
     providerId: provider.id,
@@ -118,17 +186,16 @@ export async function stopRecording(): Promise<void> {
   if (!run || recordingStore.getState().phase !== 'recording') return
 
   dispatchRecording({ type: 'STOP_REQUESTED', at: Date.now() })
+  // The microphone is released at once; only the text may still be catching up.
+  run.capture.stop()
+  levelSource.reset()
+  resetInput()
 
   let result: TranscriptionResult
   try {
     result = await run.live.stop()
   } catch (cause) {
-    endRun()
-    dispatchRecording({
-      type: 'FAILED',
-      error: createAppError('unknown', cause instanceof Error ? cause.message : undefined),
-      at: Date.now(),
-    })
+    failRun(createAppError('unknown', cause instanceof Error ? cause.message : undefined))
     return
   }
 

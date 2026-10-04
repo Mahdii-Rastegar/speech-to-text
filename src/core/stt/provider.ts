@@ -47,7 +47,7 @@ export type LiveEvent =
   | { type: 'error'; error: AppError }
 
 export interface LiveSession {
-  /** Feed captured audio (16 kHz mono). Batch engines buffer it; the demo engine ignores it. */
+  /** Feed captured audio (16 kHz mono). Batch engines buffer it; the demo engine only paces its script with it. */
   pushAudio(samples: Float32Array): void
   /** Subscribe to events. Returns the unsubscribe function. */
   onEvent(listener: (event: LiveEvent) => void): () => void
