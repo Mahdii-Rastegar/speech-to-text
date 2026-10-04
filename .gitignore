@@ -1,0 +1,64 @@
+# Dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+*.tsbuildinfo
+
+# Rust / Tauri (added in the Windows shell phase)
+target/
+src-tauri/target/
+src-tauri/gen/
+
+# Local models, audio and benchmark data: large or personal, never committed
+models/
+bench/samples/
+bench/results/
+bench/tools/
+*.wav
+*.mp3
+*.m4a
+*.ogg
+*.flac
+*.webm
+*.opus
+*.bin
+*.gguf
+*.safetensors
+
+# Portable app runtime folders (user settings, history database)
+/data/
+/config/
+*.db
+*.sqlite
+*.sqlite3
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Test output
+test-results/
+playwright-report/
+blob-report/
+coverage/
+
+# Logs
+logs/
+*.log
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.sw?
+
+# Claude Code local settings
+.claude/settings.local.json

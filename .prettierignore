@@ -1,0 +1,9 @@
+node_modules
+dist
+pnpm-lock.yaml
+test-results
+playwright-report
+target
+models
+bench/samples
+bench/results

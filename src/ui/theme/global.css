@@ -1,0 +1,215 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens.
+ * Colors are named by role, and the default Tailwind palette is removed so
+ * components can only use these.
+ */
+@theme {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* Obsidian backdrop, midnight page, deep navy raised surfaces */
+  --color-backdrop: #070b14;
+  --color-surface: #0c1322;
+  --color-raised: #121b30;
+  --color-hover: #19243f;
+  --color-line: #1e2a45;
+  --color-line-strong: #2c3b5e;
+
+  /* Text: paper, mist, slate */
+  --color-ink: #e9eef8;
+  --color-ink-2: #a3aec6;
+  --color-ink-3: #7d8aa8;
+
+  /* One hue per meaning: live audio and focus, AI output, recording and errors */
+  --color-live: #5ccbf2;
+  --color-accent: #6c9cff;
+  --color-ai: #a594ff;
+  --color-rec: #ff6b72;
+
+  /* The record key is the brightest thing on screen */
+  --color-key: #e9eef8;
+  --color-on-key: #070b14;
+
+  --font-sans: 'Vazirmatn Variable', system-ui, 'Segoe UI', Tahoma, sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', 'Vazirmatn Variable', ui-monospace, 'Cascadia Mono', Consolas,
+    monospace;
+
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Final text arrives dim, like the interim text it replaces, then settles to full contrast. */
+  --animate-ink-settle: ink-settle 420ms var(--ease-out-quart) both;
+  --animate-toast-in: toast-in 220ms var(--ease-out-quart) both;
+  --animate-sheet-in: sheet-in 260ms var(--ease-out-quart) both;
+  --animate-fade-in: fade-in 180ms ease-out both;
+
+  @keyframes ink-settle {
+    from {
+      color: var(--color-ink-2);
+    }
+    to {
+      color: var(--color-ink);
+    }
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes sheet-in {
+    from {
+      transform: translateX(var(--sheet-from, 100%));
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background-color: var(--color-backdrop);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    /* A faint cool light from above keeps the dark backdrop from looking flat. */
+    background:
+      radial-gradient(70rem 34rem at 62% -12rem, rgb(92 140 255 / 0.13), transparent 62%),
+      radial-gradient(40rem 26rem at 100% 100%, rgb(92 203 242 / 0.05), transparent 60%),
+      var(--color-backdrop);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
+  }
+
+  #root {
+    height: 100dvh;
+  }
+
+  button,
+  [role='tab'],
+  [role='radio'],
+  [role='switch'] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button:not(:disabled),
+  [role='tab']:not(:disabled),
+  [role='radio']:not(:disabled),
+  [role='switch']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-live);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-live) 30%, transparent);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* The transcript is the page: large, open leading for Persian, comfortable line length. */
+@utility transcript {
+  font-size: 1.1875rem;
+  line-height: 2.1;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+
+  &[dir='ltr'] {
+    line-height: 1.85;
+  }
+
+  @media (width < 40rem) {
+    font-size: 1.0625rem;
+    line-height: 2.05;
+  }
+}
+
+@utility btn {
+  @apply inline-flex h-10 items-center justify-center gap-2 rounded-[0.625rem] px-4 text-sm font-medium transition-colors duration-150 disabled:opacity-45 pointer-coarse:h-11;
+}
+
+@utility btn-primary {
+  @apply bg-ink text-on-key hover:bg-ink/90;
+}
+
+@utility btn-secondary {
+  @apply border border-line-strong bg-raised text-ink hover:bg-hover;
+}
+
+@utility icon-btn {
+  @apply grid size-11 shrink-0 place-items-center rounded-[0.625rem] text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink disabled:opacity-45;
+}
+
+/* The page: a lit panel resting on the backdrop. */
+@utility surface-page {
+  background: linear-gradient(180deg, #101a2f 0%, #0b1220 26rem);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 30px 80px -40px rgb(0 0 0 / 0.9);
+}
+
+/* Floating controls: the recorder dock, popovers. */
+@utility surface-float {
+  background: linear-gradient(180deg, #18233e 0%, #111a2f 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.07),
+    0 0 0 1px rgb(0 0 0 / 0.35),
+    0 22px 50px -18px rgb(0 0 0 / 0.75);
+}
+
+/* The record key: a bright, slightly domed face with a cool halo. */
+@utility key-face {
+  background: linear-gradient(180deg, #ffffff 0%, #dfe7f7 55%, #c9d4ec 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    inset 0 -3px 6px rgb(40 60 110 / 0.22),
+    0 0 0 6px rgb(92 203 242 / 0.07),
+    0 14px 34px -10px rgb(92 160 255 / 0.55);
+}
+
+@utility text-gradient-live {
+  background: linear-gradient(90deg, var(--color-live), var(--color-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
