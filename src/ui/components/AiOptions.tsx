@@ -1,9 +1,9 @@
 import { Check, Sparkles } from 'lucide-react'
-import { Switch } from 'radix-ui'
 import type { ReactNode } from 'react'
 import { updateSettings, useSettings } from '@/app/stores/settingsStore'
 import { cn } from '@/ui/format'
 import { fa } from '@/ui/strings/fa'
+import { ToggleSwitch } from './ToggleSwitch'
 
 interface OptionChipProps {
   pressed: boolean
@@ -48,19 +48,10 @@ export function AiOptions({ className }: { className?: string }) {
     >
       <legend className="sr-only">{fa.ai.group}</legend>
       <label className="inline-flex h-8 items-center gap-2.5 text-sm text-ink pointer-coarse:h-11">
-        <Switch.Root
+        <ToggleSwitch
           checked={aiEnabled}
           onCheckedChange={(checked) => updateSettings({ aiEnabled: checked })}
-          className="relative h-6 w-10 shrink-0 rounded-full bg-line-strong transition-colors duration-150 data-[state=checked]:bg-ai"
-        >
-          <Switch.Thumb
-            className={cn(
-              'absolute start-[3px] top-[3px] block size-[1.125rem] rounded-full bg-ink-2',
-              'transition-transform duration-150 ease-out data-[state=checked]:bg-on-key',
-              'ltr:data-[state=checked]:translate-x-4 rtl:data-[state=checked]:-translate-x-4',
-            )}
-          />
-        </Switch.Root>
+        />
         <span className="inline-flex items-center gap-1.5">
           <Sparkles
             aria-hidden="true"

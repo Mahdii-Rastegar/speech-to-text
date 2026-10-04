@@ -1,4 +1,4 @@
-import { createAppError } from '@/core/errors'
+import { createAppError, type AppErrorKind } from '@/core/errors'
 import { isBusy } from '@/core/recording/machine'
 import {
   addCosts,
@@ -208,7 +208,16 @@ export function selectSession(sessionId: string): void {
   if (isBusy(recordingStore.getState().phase)) return
   dispatchRecording({ type: 'RESET' })
   sessionsStore.setState({ activeSessionId: sessionId })
-  uiStore.setState({ version: 'raw', railOpen: false })
+  uiStore.setState({ view: 'main', version: 'raw', railOpen: false })
+}
+
+/** Demo only: puts the main view into a chosen failure state so its message can be reviewed. */
+export function previewError(kind: AppErrorKind): void {
+  if (isBusy(recordingStore.getState().phase)) return
+  sessionsStore.setState({ activeSessionId: null })
+  dispatchRecording({ type: 'START_REQUESTED' })
+  dispatchRecording({ type: 'FAILED', error: createAppError(kind), at: Date.now() })
+  uiStore.setState({ view: 'main', version: 'raw', railOpen: false })
 }
 
 export function selectProvider(providerId: string): void {

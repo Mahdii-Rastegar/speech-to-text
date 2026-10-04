@@ -1,4 +1,4 @@
-// Captures the main screen in its key states, for visual review after UI changes.
+// Captures every screen in its key states, for visual review after UI changes.
 // Usage: start the dev server (`pnpm dev`), then `node scripts/screenshots.mjs`.
 // Images land in test-results/screens/ (git-ignored).
 import { mkdir } from 'node:fs/promises'
@@ -34,6 +34,8 @@ for (const [name, options] of Object.entries(viewports)) {
 
   await page.goto(baseURL)
   await page.evaluate(() => document.fonts.ready)
+  await shot('0-welcome')
+  await page.getByRole('button', { name: 'شروع کنید' }).click()
   await shot('1-empty')
 
   await page.getByRole('button', { name: START }).click()
@@ -74,6 +76,30 @@ for (const [name, options] of Object.entries(viewports)) {
     await page.waitForTimeout(450)
     await shot('8-history-sheet')
   }
+
+  await page.getByRole('button', { name: 'جست‌وجو در تاریخچه' }).click()
+  await page.waitForTimeout(450)
+  await shot('9-history')
+  await page.getByRole('searchbox').fill('notion')
+  await shot('10-history-search')
+  await page.getByRole('searchbox').fill('')
+  await page.getByRole('button', { name: 'حذف جلسه' }).first().click()
+  await page.waitForTimeout(300)
+  await shot('11-history-confirm-delete')
+  await page.getByRole('button', { name: 'انصراف' }).click()
+  await page.getByRole('button', { name: 'بازگشت به صفحه‌ی اصلی' }).click()
+
+  await page.getByRole('button', { name: 'تنظیمات' }).click()
+  await page.waitForTimeout(300)
+  await shot('12-settings-top')
+  await page.getByRole('heading', { name: 'کلید API' }).scrollIntoViewIfNeeded()
+  await page.getByLabel('کلید OpenRouter').scrollIntoViewIfNeeded()
+  await shot('13-settings-middle')
+  await page.getByRole('button', { name: 'دیدن دوباره‌ی صفحه‌ی خوش‌آمد' }).scrollIntoViewIfNeeded()
+  await shot('14-settings-bottom')
+  await page.getByRole('button', { name: 'کلید API پذیرفته نشد' }).click()
+  await page.waitForTimeout(300)
+  await shot('15-error-invalid-key')
 
   await context.close()
 }

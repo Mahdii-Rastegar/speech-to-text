@@ -3,7 +3,15 @@ import { useUi, type NoticeKind } from '@/app/stores/uiStore'
 import { fa } from '@/ui/strings/fa'
 
 /** Notices that also appear on screen. The rest are only announced to screen readers. */
-const VISIBLE: readonly NoticeKind[] = ['nothing-recorded', 'copy-failed', 'ai-failed', 'coming-soon']
+const VISIBLE: readonly NoticeKind[] = [
+  'nothing-recorded',
+  'copy-failed',
+  'ai-failed',
+  'coming-soon',
+  'session-deleted',
+  'history-cleared',
+  'key-not-saved',
+]
 
 const VISIBLE_MS = 3200
 

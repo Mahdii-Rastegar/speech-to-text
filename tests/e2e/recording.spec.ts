@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test'
+import { skipWelcome } from './helpers.ts'
 
 const START = 'شروع ضبط'
 const STOP = 'پایان ضبط'
 const FIRST_WORDS = 'امروز باید روی AI Agent'
 
 test.beforeEach(async ({ page }) => {
+  await skipWelcome(page)
   await page.goto('/')
 })
 

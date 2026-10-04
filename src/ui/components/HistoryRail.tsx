@@ -1,10 +1,10 @@
-import { Settings } from 'lucide-react'
+import { Search, Settings } from 'lucide-react'
 import { Dialog } from 'radix-ui'
 import { useMemo } from 'react'
 import { selectSession } from '@/app/recordingController'
 import { useRecording } from '@/app/stores/recordingStore'
 import { useSessions } from '@/app/stores/sessionsStore'
-import { notify, uiStore, useUi } from '@/app/stores/uiStore'
+import { openView, uiStore, useUi } from '@/app/stores/uiStore'
 import { formatClock } from '@/core/format/date'
 import { isBusy } from '@/core/recording/machine'
 import type { TranscriptionSession } from '@/core/session'
@@ -57,13 +57,24 @@ export function HistoryRail() {
   const sessions = useSessions((state) => state.sessions)
   const activeSessionId = useSessions((state) => state.activeSessionId)
   const busy = useRecording((state) => isBusy(state.phase))
+  const view = useUi((state) => state.view)
   const now = useNow()
   const groups = useMemo(() => groupSessionsByDay(sessions, now), [sessions, now])
 
   return (
     <nav aria-label={fa.history.title} className="flex h-full w-full min-w-0 flex-col">
-      <div className="flex h-14 shrink-0 items-center px-5">
+      <div className="flex h-14 shrink-0 items-center justify-between ps-5 pe-2.5">
         <Wordmark />
+        <button
+          type="button"
+          onClick={() => openView('history')}
+          aria-label={fa.history.openSearch}
+          title={fa.history.openSearch}
+          aria-current={view === 'history' ? 'page' : undefined}
+          className="icon-btn aria-[current=page]:bg-raised aria-[current=page]:text-ink"
+        >
+          <Search aria-hidden="true" className="size-[1.125rem]" />
+        </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-4">
@@ -78,7 +89,7 @@ export function HistoryRail() {
                   <li key={session.id}>
                     <SessionItem
                       session={session}
-                      active={session.id === activeSessionId}
+                      active={view === 'main' && session.id === activeSessionId}
                       disabled={busy}
                     />
                   </li>
@@ -92,8 +103,9 @@ export function HistoryRail() {
       <div className="shrink-0 border-t border-line p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
-          onClick={() => notify('coming-soon')}
-          className="flex h-11 w-full items-center gap-2.5 rounded-[0.625rem] px-2.5 text-sm text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink"
+          onClick={() => openView('settings')}
+          aria-current={view === 'settings' ? 'page' : undefined}
+          className="flex h-11 w-full items-center gap-2.5 rounded-[0.625rem] px-2.5 text-sm text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink aria-[current=page]:bg-raised aria-[current=page]:text-ink"
         >
           <Settings aria-hidden="true" className="size-[1.125rem]" />
           {fa.history.settings}

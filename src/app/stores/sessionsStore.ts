@@ -40,6 +40,17 @@ export function updateSession(
   }))
 }
 
+export function removeSession(id: string): void {
+  sessionsStore.setState((state) => ({
+    sessions: state.sessions.filter((session) => session.id !== id),
+    activeSessionId: state.activeSessionId === id ? null : state.activeSessionId,
+  }))
+}
+
+export function clearSessions(): void {
+  sessionsStore.setState({ sessions: [], activeSessionId: null })
+}
+
 export function setProcessing(id: string, parts: ProcessingParts | null): void {
   sessionsStore.setState((state) => {
     const processing = { ...state.processing }

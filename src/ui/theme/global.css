@@ -176,6 +176,10 @@
   @apply border border-line-strong bg-raised text-ink hover:bg-hover;
 }
 
+@utility btn-danger {
+  @apply bg-rec text-on-key hover:bg-rec/90;
+}
+
 @utility icon-btn {
   @apply grid size-11 shrink-0 place-items-center rounded-[0.625rem] text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink disabled:opacity-45;
 }
@@ -186,6 +190,11 @@
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.05),
     0 30px 80px -40px rgb(0 0 0 / 0.9);
+}
+
+/* A group of related settings. */
+@utility surface-card {
+  @apply rounded-[1rem] border border-line bg-raised/45 shadow-[inset_0_1px_0_rgb(255_255_255/0.04)];
 }
 
 /* Floating controls: the recorder dock, popovers. */

@@ -1,15 +1,12 @@
 import { ChevronDown, Cloud, HardDrive } from 'lucide-react'
-import { Popover, RadioGroup } from 'radix-ui'
+import { Popover } from 'radix-ui'
 import { useId } from 'react'
-import { selectProvider } from '@/app/recordingController'
 import { FALLBACK_PROVIDER_ID, providers } from '@/app/services'
 import { useRecording } from '@/app/stores/recordingStore'
-import { updateSettings, useSettings } from '@/app/stores/settingsStore'
+import { useSettings } from '@/app/stores/settingsStore'
 import { isBusy } from '@/core/recording/machine'
-import type { LanguageSetting } from '@/core/session'
-import { fa, providerName } from '@/ui/strings/fa'
-
-const LANGUAGES: readonly LanguageSetting[] = ['auto', 'fa', 'en']
+import { fa } from '@/ui/strings/fa'
+import { EngineRadios, LanguageRadios } from './EnginePicker'
 
 /**
  * Says where speech is being turned into text (on this device or in the cloud)
@@ -17,7 +14,6 @@ const LANGUAGES: readonly LanguageSetting[] = ['auto', 'fa', 'en']
  */
 export function StatusChip() {
   const providerId = useSettings((settings) => settings.sttProviderId)
-  const language = useSettings((settings) => settings.language)
   const busy = useRecording((state) => isBusy(state.phase))
   const engineHeadingId = useId()
   const languageHeadingId = useId()
@@ -51,36 +47,7 @@ export function StatusChip() {
           <h2 id={engineHeadingId} className="px-2.5 text-xs font-medium text-ink-3">
             {fa.status.engineTitle}
           </h2>
-          <RadioGroup.Root
-            dir="rtl"
-            value={provider.id}
-            onValueChange={selectProvider}
-            aria-labelledby={engineHeadingId}
-            className="mt-2 grid gap-1"
-          >
-            {providers.list().map((entry) => {
-              const EntryIcon = entry.getCapabilities().offline ? HardDrive : Cloud
-              const hint = fa.providers[entry.id]?.hint
-              return (
-                <RadioGroup.Item
-                  key={entry.id}
-                  value={entry.id}
-                  className="group flex min-h-12 w-full items-center gap-3 rounded-[0.625rem] px-2.5 py-2 text-start transition-colors duration-150 hover:bg-hover data-[state=checked]:bg-hover"
-                >
-                  <span className="grid size-4 shrink-0 place-items-center rounded-full border border-line-strong group-data-[state=checked]:border-live">
-                    <RadioGroup.Indicator className="size-2 rounded-full bg-live" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm text-ink">{providerName(entry.id)}</span>
-                    <span className="mt-0.5 block text-xs text-ink-3">
-                      {hint ?? <bdi className="font-mono">{entry.models[0]?.id}</bdi>}
-                    </span>
-                  </span>
-                  <EntryIcon aria-hidden="true" className="size-4 shrink-0 text-ink-3" />
-                </RadioGroup.Item>
-              )
-            })}
-          </RadioGroup.Root>
+          <EngineRadios labelledBy={engineHeadingId} className="mt-2" />
           <p className="mt-2 px-2.5 text-xs leading-5 text-ink-3">
             {offline ? fa.status.localPrivacy : fa.status.cloudPrivacy}
           </p>
@@ -90,26 +57,7 @@ export function StatusChip() {
           <h2 id={languageHeadingId} className="px-2.5 text-xs font-medium text-ink-3">
             {fa.status.languageTitle}
           </h2>
-          <RadioGroup.Root
-            dir="rtl"
-            value={language}
-            onValueChange={(value) => {
-              const next = LANGUAGES.find((entry) => entry === value)
-              if (next) updateSettings({ language: next })
-            }}
-            aria-labelledby={languageHeadingId}
-            className="mt-2 grid grid-cols-3 gap-1 rounded-[0.625rem] bg-surface p-1"
-          >
-            {LANGUAGES.map((entry) => (
-              <RadioGroup.Item
-                key={entry}
-                value={entry}
-                className="h-9 rounded-[0.4375rem] text-[0.8125rem] text-ink-2 transition-colors duration-150 hover:text-ink data-[state=checked]:bg-hover data-[state=checked]:text-ink pointer-coarse:h-11"
-              >
-                {fa.languages[entry]}
-              </RadioGroup.Item>
-            ))}
-          </RadioGroup.Root>
+          <LanguageRadios labelledBy={languageHeadingId} className="mt-2" />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

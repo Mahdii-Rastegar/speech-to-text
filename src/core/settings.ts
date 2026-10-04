@@ -9,6 +9,8 @@ export interface Settings {
   aiEnabled: boolean
   cleanEnabled: boolean
   summaryEnabled: boolean
+  /** The welcome screen has been seen and closed. */
+  onboarded: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -18,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   aiEnabled: false,
   cleanEnabled: true,
   summaryEnabled: false,
+  onboarded: false,
 }
 
 const LANGUAGES: readonly LanguageSetting[] = ['auto', 'fa', 'en']
@@ -45,5 +48,6 @@ export function parseSettings(raw: unknown): Settings {
     aiEnabled: booleanOr(value.aiEnabled, DEFAULT_SETTINGS.aiEnabled),
     cleanEnabled: booleanOr(value.cleanEnabled, DEFAULT_SETTINGS.cleanEnabled),
     summaryEnabled: booleanOr(value.summaryEnabled, DEFAULT_SETTINGS.summaryEnabled),
+    onboarded: booleanOr(value.onboarded, DEFAULT_SETTINGS.onboarded),
   }
 }

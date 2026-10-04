@@ -1,23 +1,15 @@
-import { RotateCcw, Sparkles, TriangleAlert } from 'lucide-react'
+import { RotateCcw, Settings, Sparkles, TriangleAlert } from 'lucide-react'
 import { Tabs } from 'radix-ui'
 import { memo, type ReactNode } from 'react'
-import {
-  processSession,
-  startRecording,
-  switchToLocalAndRetry,
-} from '@/app/recordingController'
+import { processSession, startRecording, switchToLocalAndRetry } from '@/app/recordingController'
 import { FALLBACK_PROVIDER_ID, providers } from '@/app/services'
 import { useRecording } from '@/app/stores/recordingStore'
 import { useSessions } from '@/app/stores/sessionsStore'
 import { useSettings } from '@/app/stores/settingsStore'
-import { uiStore, useUi } from '@/app/stores/uiStore'
-import type { AppError } from '@/core/errors'
+import { openView, uiStore, useUi } from '@/app/stores/uiStore'
+import type { AppError, AppErrorKind } from '@/core/errors'
 import { isBusy } from '@/core/recording/machine'
-import {
-  transcriptOf,
-  type TranscriptVersion,
-  type TranscriptionSession,
-} from '@/core/session'
+import { transcriptOf, type TranscriptVersion, type TranscriptionSession } from '@/core/session'
 import { joinSegments } from '@/core/stt/provider'
 import { detectDirection, type TextDirection } from '@/core/text/direction'
 import { cn, costLabel, dateTimeLabel, durationLabel } from '@/ui/format'
@@ -29,6 +21,9 @@ import { VoiceMark } from './Wordmark'
 
 const VERSIONS: readonly TranscriptVersion[] = ['raw', 'clean', 'summary']
 
+/** Failures whose fix is a setting, so the message offers the way there. */
+const FIXED_IN_SETTINGS: readonly AppErrorKind[] = ['invalid-api-key', 'model-unavailable']
+
 const COLUMN = 'mx-auto w-full max-w-[46rem] px-5 sm:px-8'
 
 function EmptyState() {
@@ -36,7 +31,8 @@ function EmptyState() {
     <div className={cn(COLUMN, 'flex min-h-full flex-col justify-center py-10')}>
       <VoiceMark className="h-14 w-28 text-live drop-shadow-[0_0_18px_rgb(92_203_242/0.45)]" />
       <h2 className="mt-7 text-[1.625rem] leading-[1.7] font-bold text-ink sm:text-[2rem]">
-        <span className="text-gradient-live">{fa.transcript.heroLead}</span> {fa.transcript.heroRest}
+        <span className="text-gradient-live">{fa.transcript.heroLead}</span>{' '}
+        {fa.transcript.heroRest}
       </h2>
       <p className="transcript mt-3 text-ink-2">
         {fa.transcript.emptyTitle}
@@ -113,6 +109,16 @@ function ErrorPanel({ error }: { error: AppError }) {
                 {fa.errorActions.switchToLocal}
               </button>
             )}
+            {FIXED_IN_SETTINGS.includes(error.kind) && (
+              <button
+                type="button"
+                onClick={() => openView('settings')}
+                className="btn btn-secondary"
+              >
+                <Settings aria-hidden="true" className="size-4" />
+                {fa.errorActions.openSettings}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -173,7 +179,10 @@ function SessionHeading({ session }: { session: TranscriptionSession }) {
 
   return (
     <header className="mb-6">
-      <h2 dir={detectDirection(heading)} className="text-[1.0625rem] leading-7 font-semibold text-ink">
+      <h2
+        dir={detectDirection(heading)}
+        className="text-[1.0625rem] leading-7 font-semibold text-ink"
+      >
         {heading}
       </h2>
       <MetaRow items={items} />
@@ -328,7 +337,8 @@ export function TranscriptPanel() {
             >
               {VERSIONS.map((entry) => {
                 const madeByAi = entry !== 'raw'
-                const busy = entry === 'clean' ? processing?.clean : entry === 'summary' && processing?.summary
+                const busy =
+                  entry === 'clean' ? processing?.clean : entry === 'summary' && processing?.summary
                 return (
                   <Tabs.Trigger
                     key={entry}

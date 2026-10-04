@@ -1,5 +1,5 @@
 import { History, Settings } from 'lucide-react'
-import { notify, uiStore } from '@/app/stores/uiStore'
+import { openView, uiStore } from '@/app/stores/uiStore'
 import { fa } from '@/ui/strings/fa'
 import { StatusChip } from './StatusChip'
 import { Wordmark } from './Wordmark'
@@ -30,7 +30,7 @@ export function TopBar() {
 
         <button
           type="button"
-          onClick={() => notify('coming-soon')}
+          onClick={() => openView('settings')}
           aria-label={fa.history.settings}
           className="icon-btn lg:hidden"
         >
