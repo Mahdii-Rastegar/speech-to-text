@@ -26,7 +26,13 @@ import {
   type STTProvider,
   type TranscriptionResult,
 } from '@/core/stt/provider'
-import { aiProcessor, decodeFile, FALLBACK_PROVIDER_ID, levelSource, providers } from './services'
+import {
+  createAiProcessor,
+  decodeFile,
+  FALLBACK_PROVIDER_ID,
+  levelSource,
+  providers,
+} from './services'
 import { inputStore, resetInput } from './stores/inputStore'
 import { dispatchRecording, recordingStore } from './stores/recordingStore'
 import {
@@ -383,10 +389,12 @@ export async function processSession(sessionId: string, parts: ProcessingParts):
   setProcessing(sessionId, parts)
   updateSession(sessionId, () => ({ status: 'processing' }))
   try {
-    const result = await aiProcessor.process(session.rawTranscript, {
+    const processor = createAiProcessor(settingsStore.getState())
+    const result = await processor.process(session.rawTranscript, {
       ...parts,
       title: session.title === null,
     })
+    // What did come back is kept, and paid for, even when another part failed.
     updateSession(sessionId, (current) => ({
       cleanTranscript: result.cleanTranscript ?? current.cleanTranscript,
       summary: result.summary ?? current.summary,
@@ -394,9 +402,10 @@ export async function processSession(sessionId: string, parts: ProcessingParts):
       cost: addCosts(current.cost, result.cost),
       updatedAt: new Date().toISOString(),
     }))
-    notify('ai-finished')
-  } catch {
-    notify('ai-failed')
+    if (result.error) notify('ai-failed', result.error.kind)
+    else notify('ai-finished')
+  } catch (cause) {
+    notify('ai-failed', toAppError(cause).kind)
   } finally {
     updateSession(sessionId, () => ({ status: 'done' }))
     setProcessing(sessionId, null)

@@ -1,7 +1,10 @@
 mod audio;
+mod cloud;
 mod engine;
 mod history;
+mod secrets;
 
+use cloud::{CloudError, CloudResponse, Method, Provider};
 use engine::{Engine, EngineError, EngineInfo, Transcript};
 use history::History;
 use tauri::ipc::{InvokeBody, Request, Response};
@@ -64,6 +67,28 @@ fn history_clear(history: State<'_, History>) -> Result<(), String> {
     history.clear()
 }
 
+/// Is a key stored for this cloud service? The key itself never goes to the interface.
+#[tauri::command(async)]
+fn secret_exists(provider: Provider) -> Result<bool, String> {
+    secrets::exists(provider.name())
+}
+
+#[tauri::command(async)]
+fn secret_set(provider: Provider, key: String) -> Result<(), String> {
+    secrets::set(provider.name(), &key)
+}
+
+#[tauri::command(async)]
+fn secret_delete(provider: Provider) -> Result<(), String> {
+    secrets::delete(provider.name())
+}
+
+/// Asks a cloud service something, with the stored key attached on this side.
+#[tauri::command(async)]
+fn cloud_request(provider: Provider, method: Method, path: String, body: Option<String>) -> Result<CloudResponse, CloudError> {
+    cloud::request(provider, method, &path, body.as_deref())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .manage(Engine::default())
@@ -76,7 +101,11 @@ pub fn run() {
             history_list,
             history_save,
             history_delete,
-            history_clear
+            history_clear,
+            secret_exists,
+            secret_set,
+            secret_delete,
+            cloud_request
         ])
         .build(tauri::generate_context!())
         .expect("failed to start the application")

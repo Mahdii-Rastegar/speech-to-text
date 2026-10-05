@@ -2,7 +2,7 @@
 
 Offline-first speech-to-text for Persian and English: live transcription, local Whisper, optional cloud engines and AI clean-up. Windows desktop (Tauri) and iPhone (PWA) from one codebase.
 
-**Status: work in progress.** In the desktop app, recordings are transcribed offline by a local Whisper engine (whisper.cpp, `large-v3-turbo`); the text appears after the recording stops. In the browser the text still comes from a scripted demo engine, and the cloud engines and the AI step are demos everywhere. Audio stays in memory on the device; it is not stored and no network requests are made.
+**Status: work in progress.** In the desktop app, recordings are transcribed offline by a local Whisper engine (whisper.cpp, `large-v3-turbo`); the text appears after the recording stops. The desktop app can also clean up, summarize and title a transcript with a chat model, through OpenRouter or Google's Gemini API and the user's own key; the key is kept in the Windows Credential Manager. In the browser the text and the AI step still come from scripted demos, and the cloud speech engines are demos everywhere. Audio stays in memory on the device and is never stored or sent; only when the AI step is switched on does the transcript text go to the chosen service.
 
 ## Development
 

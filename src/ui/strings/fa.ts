@@ -1,4 +1,5 @@
 import type { NoticeKind } from '@/app/stores/uiStore'
+import type { CloudProviderId } from '@/core/cloud/transport'
 import type { AppErrorKind } from '@/core/errors'
 import type { LanguageSetting, TranscriptVersion } from '@/core/session'
 
@@ -34,8 +35,16 @@ const notices: Record<NoticeKind, string> = {
   'session-deleted': 'جلسه حذف شد',
   'history-cleared': 'تاریخچه پاک شد',
   'key-not-saved': 'در نسخه‌ی نمایشی کلید ذخیره نمی‌شود',
+  'key-saved': 'کلید ذخیره شد',
+  'key-save-failed': 'کلید ذخیره نشد. فقط خود کلید را، بدون فاصله، وارد کنید.',
+  'key-deleted': 'کلید حذف شد',
   'mic-no-signal': 'از این میکروفون صدایی نمی‌رسد. در تنظیمات میکروفون دیگری انتخاب کنید.',
   'mic-fell-back': 'میکروفون انتخاب‌شده پیدا نشد؛ ضبط با میکروفون پیش‌فرض سیستم شروع شد.',
+}
+
+/** Longer forms for notices that can say what went wrong. */
+const noticesWithReason: Partial<Record<NoticeKind, string>> = {
+  'ai-failed': 'پردازش AI انجام نشد: {reason}',
 }
 
 const errors: Record<AppErrorKind, { title: string; body: string }> = {
@@ -63,9 +72,17 @@ const errors: Record<AppErrorKind, { title: string; body: string }> = {
     title: 'این سرویس از شبکه‌ی فعلی در دسترس نیست',
     body: 'VPN را روشن کنید و دوباره تلاش کنید، یا با موتور محلی ادامه دهید.',
   },
+  'missing-api-key': {
+    title: 'کلید API وارد نشده است',
+    body: 'کلید این سرویس را در تنظیمات وارد کنید.',
+  },
   'invalid-api-key': {
     title: 'کلید API پذیرفته نشد',
     body: 'کلید را در تنظیمات بررسی کنید.',
+  },
+  'no-credit': {
+    title: 'اعتبار حساب این سرویس کافی نیست',
+    body: 'حساب خود را در سایت سرویس شارژ کنید، یا با موتور محلی ادامه دهید.',
   },
   'rate-limited': {
     title: 'سقف استفاده از سرویس پر شده است',
@@ -107,6 +124,19 @@ const providers: Record<string, { name: string; hint?: string }> = {
   'demo-local': { name: 'Whisper محلی' },
   'demo-cloud': { name: 'OpenRouter' },
   'demo-failing': { name: 'سرویس ناموجود', hint: 'برای دیدن حالت خطا' },
+}
+
+const cloudProviders: Record<CloudProviderId, { name: string; keyLabel: string; hint: string }> = {
+  openrouter: {
+    name: 'OpenRouter',
+    keyLabel: 'کلید OpenRouter',
+    hint: 'هزینه‌ی واقعی هر درخواست را گزارش می‌کند.',
+  },
+  google: {
+    name: 'Google Gemini',
+    keyLabel: 'کلید Google AI Studio',
+    hint: 'با کلید Google AI Studio؛ هزینه فقط برای بعضی مدل‌ها تخمین زده می‌شود.',
+  },
 }
 
 export const fa = {
@@ -182,6 +212,7 @@ export const fa = {
   },
   languages,
   providers,
+  cloudProviders,
   history: {
     title: 'تاریخچه',
     open: 'باز کردن تاریخچه',
@@ -232,14 +263,30 @@ export const fa = {
       'بعد از پایان هر ضبط، متن خودکار پردازش می‌شود. متن خام همیشه دست‌نخورده می‌ماند.',
     aiCleanHint: 'اصلاح نگارش و نقطه‌گذاری، بدون تغییر معنی و لحن.',
     aiSummaryHint: 'یک خلاصه‌ی کوتاه از متن.',
+    aiProviderTitle: 'سرویس AI',
+    aiPrivacy: 'هنگام پردازش، متن جلسه (نه صدا) برای سرویس انتخاب‌شده فرستاده می‌شود.',
+    aiKeyMissing: 'برای این سرویس هنوز کلیدی ذخیره نشده است. آن را در بخش «کلید API» وارد کنید.',
+    aiModelLabel: 'مدل',
+    aiModelHint:
+      'شناسه‌ی مدل را همان‌طور که در سایت سرویس نوشته شده وارد کنید. اگر خالی بماند، مدل پیش‌فرض استفاده می‌شود.',
     keySection: 'کلید API',
-    keyLabel: 'کلید OpenRouter',
     keyHint:
+      'کلید در Credential Manager ویندوز نگه داشته می‌شود، نه در فایل‌های برنامه، و فقط برای خود همان سرویس فرستاده می‌شود. بعد از ذخیره دیگر نمایش داده نمی‌شود.',
+    keyHintDemo:
       'کلید فقط روی همین دستگاه نگه داشته می‌شود و جز برای خود سرویس به جایی فرستاده نمی‌شود. در نسخه‌ی نمایشی ذخیره نمی‌شود.',
     keyNone: 'کلیدی ذخیره نشده است.',
+    keyStored: 'کلید ذخیره شده است.',
+    keyReplace: 'برای جایگزینی، کلید تازه را وارد کنید',
+    keyChecking: 'در حال بررسی کلید…',
+    keyValid: 'سرویس این کلید را پذیرفت.',
+    keyCheckFailed: 'بررسی کلید ناموفق بود: {reason}',
+    keyCheck: 'بررسی',
+    keyDelete: 'حذف',
     keySave: 'ذخیره',
-    keyShow: 'نمایش کلید',
-    keyHide: 'پنهان کردن کلید',
+    /** Accessible names: the visible words are the same for every service. */
+    keyActionFor: '{action} {key}',
+    keyShow: 'نمایش',
+    keyHide: 'پنهان کردن',
     dataSection: 'داده‌ها و حریم خصوصی',
     dataNote: 'صدا هیچ‌وقت ذخیره نمی‌شود. فقط متن جلسه‌ها و مشخصاتشان روی همین دستگاه می‌ماند.',
     clearHistory: 'پاک کردن تاریخچه',
@@ -276,6 +323,7 @@ export const fa = {
     openSettings: 'باز کردن تنظیمات',
   },
   notices,
+  noticesWithReason,
 } as const
 
 export function providerName(id: string): string {

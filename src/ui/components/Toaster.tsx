@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useUi, type NoticeKind } from '@/app/stores/uiStore'
+import { useUi, type NoticeKind, type UiState } from '@/app/stores/uiStore'
 import { fa } from '@/ui/strings/fa'
 
 /** Notices that also appear on screen. The rest are only announced to screen readers. */
@@ -13,11 +13,21 @@ const VISIBLE: readonly NoticeKind[] = [
   'session-deleted',
   'history-cleared',
   'key-not-saved',
+  'key-save-failed',
+  'key-deleted',
   'mic-no-signal',
   'mic-fell-back',
 ]
 
 const VISIBLE_MS = 3200
+
+/** The notice's own text, or its longer form that names the failure behind it. */
+function messageOf(notice: NonNullable<UiState['notice']>): string {
+  const withReason = fa.noticesWithReason[notice.kind]
+  return notice.reason && withReason
+    ? withReason.replace('{reason}', fa.errors[notice.reason].title)
+    : fa.notices[notice.kind]
+}
 
 export function Toaster() {
   const notice = useUi((state) => state.notice)
@@ -29,7 +39,7 @@ export function Toaster() {
     return () => clearTimeout(timer)
   }, [notice])
 
-  const message = notice ? fa.notices[notice.kind] : ''
+  const message = notice ? messageOf(notice) : ''
   const shown = notice !== null && VISIBLE.includes(notice.kind) && dismissedId !== notice.id
 
   return (
@@ -44,7 +54,7 @@ export function Toaster() {
         >
           <div
             key={notice.id}
-            className="animate-toast-in rounded-full border border-line-strong bg-raised px-4 py-2 text-sm text-ink shadow-[0_12px_32px_-10px_rgb(0_0_0/0.7)]"
+            className="animate-toast-in rounded-3xl border border-line-strong bg-raised px-4 py-2 text-center text-sm text-ink shadow-[0_12px_32px_-10px_rgb(0_0_0/0.7)]"
           >
             {message}
           </div>

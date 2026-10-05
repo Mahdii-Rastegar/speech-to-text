@@ -23,7 +23,11 @@ import { VoiceMark } from './Wordmark'
 const VERSIONS: readonly TranscriptVersion[] = ['raw', 'clean', 'summary']
 
 /** Failures whose fix is a setting, so the message offers the way there. */
-const FIXED_IN_SETTINGS: readonly AppErrorKind[] = ['invalid-api-key', 'model-unavailable']
+const FIXED_IN_SETTINGS: readonly AppErrorKind[] = [
+  'missing-api-key',
+  'invalid-api-key',
+  'model-unavailable',
+]
 
 const COLUMN = 'mx-auto w-full max-w-[46rem] px-5 sm:px-8'
 

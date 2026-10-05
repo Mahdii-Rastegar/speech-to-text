@@ -25,6 +25,7 @@ export function createDemoAIProcessor(options: { delayMs?: number } = {}): AIPro
           summary && hasContent ? `${spokenLines.map((line) => line.gist).join('؛ ')}.` : null,
         title: title && hasContent ? DEMO_TITLE : null,
         cost: { amountUsd: 0.0006, estimated: true },
+        error: null,
       }
     },
   }

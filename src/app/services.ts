@@ -1,9 +1,15 @@
 import { decodeAudioFile } from '@/audio/decodeFile'
 import { createLevelMeter } from '@/audio/level'
+import { createChatClient, DEFAULT_AI_MODELS } from '@/core/ai/chat'
+import type { AIProcessor } from '@/core/ai/processor'
+import { createChatAIProcessor } from '@/core/ai/providers/chat'
 import { createDemoAIProcessor } from '@/core/ai/providers/demo'
+import type { CloudAccess } from '@/core/cloud/transport'
 import type { HistoryRepository } from '@/core/history/repository'
+import type { Settings } from '@/core/settings'
 import { createDemoProvider } from '@/core/stt/providers/demo'
 import { createProviderRegistry } from '@/core/stt/registry'
+import { createNativeCloud } from '@/platform/tauri/cloud'
 import { createNativeHistory } from '@/platform/tauri/history'
 import {
   createLocalWhisperProvider,
@@ -15,9 +21,10 @@ import { createBrowserHistory } from '@/platform/web/history'
 
 /**
  * Composition root: the one place that decides which engines exist and where
- * History is kept. The desktop app has the real local engine. Everything else
- * is still a scripted demo: the cloud engines, the AI step, and in the browser
- * the local engine too. The microphone, its level and History are real everywhere.
+ * History is kept. The desktop app has the real local engine, a real key
+ * store and the real AI step. The cloud speech engines are still scripted
+ * demos, and so are the local engine and the AI step in the browser. The
+ * microphone, its level and History are real everywhere.
  */
 
 /** Made-up list price so the cloud-styled demo can show an estimated cost. */
@@ -61,7 +68,23 @@ providers.register(
   }),
 )
 
-export const aiProcessor = createDemoAIProcessor()
+/** Keys and requests for the cloud services. Null where keys cannot be kept safely yet. */
+export const cloud: CloudAccess | null = nativeEngine ? createNativeCloud() : null
+
+const demoAiProcessor = createDemoAIProcessor()
+
+/** The model an AI request goes to: the user's choice, or the service's default. */
+export const aiModelOf = (settings: Settings): string =>
+  settings.aiModel || DEFAULT_AI_MODELS[settings.aiProviderId]
+
+/** The AI step as the settings describe it right now. */
+export function createAiProcessor(settings: Settings): AIProcessor {
+  if (!cloud) return demoAiProcessor
+  return createChatAIProcessor(createChatClient(settings.aiProviderId, cloud.transport), {
+    model: aiModelOf(settings),
+    glossary: settings.glossary,
+  })
+}
 
 /** An uploaded file as 16 kHz mono. The desktop app also reads what the web view cannot. */
 export const decodeFile = (file: Blob): Promise<Float32Array> =>

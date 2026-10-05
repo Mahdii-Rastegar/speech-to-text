@@ -96,7 +96,7 @@ for (const [name, options] of Object.entries(viewports)) {
   await page.waitForTimeout(300)
   await shot('12-settings-top')
   await page.getByRole('heading', { name: 'کلید API' }).scrollIntoViewIfNeeded()
-  await page.getByLabel('کلید OpenRouter').scrollIntoViewIfNeeded()
+  await page.getByLabel('کلید OpenRouter', { exact: true }).scrollIntoViewIfNeeded()
   await shot('13-settings-middle')
   await page.getByRole('button', { name: 'دیدن دوباره‌ی صفحه‌ی خوش‌آمد' }).scrollIntoViewIfNeeded()
   await shot('14-settings-bottom')

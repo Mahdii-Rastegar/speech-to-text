@@ -20,12 +20,16 @@ serde_json = "1"
 rusqlite = { version = "0.40", features = ["bundled"] }
 # Reads the audio files the web view cannot decode itself (Apple Lossless above all).
 symphonia = { version = "0.5", features = ["aac", "alac", "isomp4", "mp3"] }
+# HTTPS to the cloud services, through the operating system's own TLS.
+ureq = { version = "3", default-features = false, features = ["native-tls"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Security",
+    "Win32_Security_Credentials",
     "Win32_System_JobObjects",
+    "Win32_System_Registry",
     "Win32_System_Threading",
 ] }
 

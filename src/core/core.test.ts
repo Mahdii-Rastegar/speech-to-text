@@ -50,6 +50,17 @@ describe('parseSettings', () => {
     expect(parseSettings({ microphoneId: 7 }).microphoneId).toBe('')
   })
 
+  it('accepts only the cloud services that exist for the AI step', () => {
+    expect(parseSettings({ aiProviderId: 'google', aiModel: ' gemini-x ' })).toMatchObject({
+      aiProviderId: 'google',
+      aiModel: 'gemini-x',
+    })
+    expect(parseSettings({ aiProviderId: 'elsewhere', aiModel: 3 })).toMatchObject({
+      aiProviderId: 'openrouter',
+      aiModel: '',
+    })
+  })
+
   it('keeps the glossary and cuts it at the length the engine reads', () => {
     expect(parseSettings({ glossary: 'API, Deploy' }).glossary).toBe('API, Deploy')
     expect(parseSettings({ glossary: 'x'.repeat(1000) }).glossary).toHaveLength(GLOSSARY_MAX_LENGTH)

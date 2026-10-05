@@ -1,3 +1,4 @@
+import { isCloudProvider, type CloudProviderId } from './cloud/transport'
 import type { LanguageSetting } from './session'
 
 /** Non-secret preferences. API keys live in the platform's secret store, never here. */
@@ -13,6 +14,10 @@ export interface Settings {
   aiEnabled: boolean
   cleanEnabled: boolean
   summaryEnabled: boolean
+  /** The cloud service that does the AI step. */
+  aiProviderId: CloudProviderId
+  /** Model for the AI step. Empty means the service's default (`DEFAULT_AI_MODELS`). */
+  aiModel: string
   /** The welcome screen has been seen and closed. */
   onboarded: boolean
 }
@@ -26,11 +31,16 @@ export const DEFAULT_SETTINGS: Settings = {
   aiEnabled: false,
   cleanEnabled: true,
   summaryEnabled: false,
+  aiProviderId: 'openrouter',
+  aiModel: '',
   onboarded: false,
 }
 
 /** Whisper reads only a short hint; the engine cuts off anything longer anyway. */
 export const GLOSSARY_MAX_LENGTH = 400
+
+/** Longer than any real model id. */
+export const AI_MODEL_MAX_LENGTH = 120
 
 const LANGUAGES: readonly LanguageSetting[] = ['auto', 'fa', 'en']
 
@@ -60,6 +70,11 @@ export function parseSettings(raw: unknown): Settings {
     aiEnabled: booleanOr(value.aiEnabled, DEFAULT_SETTINGS.aiEnabled),
     cleanEnabled: booleanOr(value.cleanEnabled, DEFAULT_SETTINGS.cleanEnabled),
     summaryEnabled: booleanOr(value.summaryEnabled, DEFAULT_SETTINGS.summaryEnabled),
+    aiProviderId: isCloudProvider(value.aiProviderId)
+      ? value.aiProviderId
+      : DEFAULT_SETTINGS.aiProviderId,
+    aiModel:
+      typeof value.aiModel === 'string' ? value.aiModel.trim().slice(0, AI_MODEL_MAX_LENGTH) : '',
     onboarded: booleanOr(value.onboarded, DEFAULT_SETTINGS.onboarded),
   }
 }

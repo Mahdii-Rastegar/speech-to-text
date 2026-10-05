@@ -1,3 +1,4 @@
+import type { AppError } from '../errors'
 import type { CostInfo } from '../session'
 
 export interface AIProcessingOptions {
@@ -12,6 +13,8 @@ export interface AIProcessingResult {
   summary: string | null
   title: string | null
   cost: CostInfo | null
+  /** Why a requested part is missing. The parts that did succeed are still returned. */
+  error: AppError | null
 }
 
 /**

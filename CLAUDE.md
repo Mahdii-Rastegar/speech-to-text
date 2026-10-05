@@ -39,7 +39,7 @@ pnpm playwright test -g "title of the test"
 
 Always go through `pnpm tauri ...` (`scripts/tauri.mjs`), never call `cargo` or the Tauri CLI directly: Rust and MSVC may live in a self-contained folder that is not on PATH. The script reads that folder from `STT_TOOLCHAIN_DIR` or the first line of the git-ignored `toolchain.local`, and builds the environment (`CARGO_HOME`, `INCLUDE`, `LIB`, `PATH`) for the child process only. The same goes for `cuda.local` / `STT_CUDA_DLL_DIR` (folder holding `cublas64_11.dll` and `cublasLt64_11.dll`); without them the engine silently runs on the CPU, several times slower.
 
-The Rust modules (`engine.rs`, `history.rs`, `audio.rs`) have unit tests, but there is no package script for them; running `cargo test` needs the same toolchain environment the script sets up.
+The Rust modules (`engine.rs`, `history.rs`, `audio.rs`, `cloud.rs`, `secrets.rs`) have unit tests, but there is no package script for them; running `cargo test` needs the same toolchain environment the script sets up.
 
 Development builds find the engine and model by walking up from the executable: `bench/tools/whisper-cpp/Release/whisper-server.exe` (or `engine/`) and `models/ggml/ggml-large-v3-turbo-q5_0.bin` (or `models/`). Overrides: `STT_ENGINE_DIR`, `STT_MODELS_DIR`. Neither is in the repository. The History database is `data/history.sqlite3` beside the executable; development builds use the project's git-ignored `data/` instead (`STT_DATA_DIR` overrides both).
 
@@ -84,15 +84,24 @@ Failures are `AppError` values (`src/core/errors.ts`) with a closed set of kinds
 - `local_engine_transcribe` takes a raw binary body, not JSON: 4-byte little-endian header length, a JSON header (`model`, `language`, `prompt`), then 16-bit PCM. `buildPayload` in TypeScript and `split_payload` in Rust must change together.
 - Rust errors serialize as `{ kind, detail }` with kebab-case kinds; `toFailure` maps them onto `AppErrorKind`.
 - The model id to file name mapping is in `model_file` (Rust) and the model list in `MODELS` (TypeScript).
-- The CSP in `tauri.conf.json` allows only `self` and Tauri IPC in `connect-src`. Cloud providers will need their hosts added there.
+- The CSP in `tauri.conf.json` allows only `self` and Tauri IPC in `connect-src`. It stays that way: cloud requests leave from the native side, not from the web view.
+
+### Cloud services and the AI step
+
+Cloud services (`CloudProviderId`: `openrouter`, `google`) are reached through a `CloudTransport` (`src/core/cloud/transport.ts`): TypeScript builds the JSON request and reads the answer, the platform attaches the key. On the desktop that is `src/platform/tauri/cloud.ts` ↔ `cloud_request` in `src-tauri/src/cloud.rs`, which reads the key from the Windows Credential Manager (`secrets.rs`, entries named `Avanevis/<provider>`) and sends it only to that provider's fixed base address; the path is validated on both sides. The web view can store, replace, test and delete a key but never read one back. Requests go through `ureq` with the system's TLS and honor the Windows system proxy, because VPN apps often work as one.
+
+- `src/core/cloud/errors.ts` maps HTTP answers onto `AppErrorKind` (a 403 that is not JSON is treated as a geo-block).
+- `src/core/ai/chat.ts` holds each service's request and answer format (`DIALECTS`), the default models and the key check. Adding a service means a dialect there, a `Provider` variant in Rust and its strings in `fa.cloudProviders`.
+- `createChatAIProcessor` sends one request per requested part (clean, summary, title) in parallel and returns what succeeded together with the first error. Prompts are in `src/core/ai/prompts.ts`; bump `PROMPT_VERSION` when their wording changes.
+- OpenRouter reports the amount charged; for Google the cost is estimated from a small price table and left out for models not in it.
 
 ### Real versus demo
 
-`hasNativeEngine()` (`isTauri()`) picks the local provider: real whisper.cpp in the desktop app, a scripted demo (`demo-local`) in the browser. The cloud engines (`demo-cloud`, `demo-failing`) and the AI processor are demos everywhere. History is real on both, but the browser build seeds it once with sample sessions (`SEEDS_DEMO_HISTORY`). Provider ids starting with `demo-` make the UI show a demo badge (`isDemoProvider`). Playwright runs against the browser build, so e2e tests exercise the demo engine with a real capture pipeline.
+`hasNativeEngine()` (`isTauri()`) picks the local provider: real whisper.cpp in the desktop app, a scripted demo (`demo-local`) in the browser. The cloud speech engines (`demo-cloud`, `demo-failing`) are demos everywhere. The AI step and the key store are real in the desktop app (`cloud` in `services.ts` is non-null there) and a demo in the browser, where `cloud` is null until the PWA gets its own key storage. History is real on both, but the browser build seeds it once with sample sessions (`SEEDS_DEMO_HISTORY`). Provider ids starting with `demo-` make the UI show a demo badge (`isDemoProvider`). Playwright runs against the browser build, so e2e tests exercise the demo engine with a real capture pipeline.
 
 ### Settings and secrets
 
-Preferences are a single localStorage entry (`stt-app.settings.v1`), read through `parseSettings`, which falls back per field so stale or hand-edited data cannot break startup; add new fields there with a default. API keys must never go into this store.
+Preferences are a single localStorage entry (`stt-app.settings.v1`), read through `parseSettings`, which falls back per field so stale or hand-edited data cannot break startup; add new fields there with a default. API keys must never go into this store; `keysStore` holds only whether a key exists.
 
 ## Conventions
 

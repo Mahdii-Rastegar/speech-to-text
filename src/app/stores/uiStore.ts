@@ -1,5 +1,6 @@
 import { useStore } from 'zustand'
 import { createStore } from 'zustand/vanilla'
+import type { AppErrorKind } from '@/core/errors'
 import type { TranscriptVersion } from '@/core/session'
 
 /** Short messages for the user. The interface layer turns each kind into text. */
@@ -18,6 +19,9 @@ export type NoticeKind =
   | 'session-deleted'
   | 'history-cleared'
   | 'key-not-saved'
+  | 'key-saved'
+  | 'key-save-failed'
+  | 'key-deleted'
   | 'mic-no-signal'
   | 'mic-fell-back'
 
@@ -30,7 +34,8 @@ export interface UiState {
   version: TranscriptVersion
   /** History drawer on small screens. */
   railOpen: boolean
-  notice: { id: number; kind: NoticeKind } | null
+  /** `reason` is the failure behind the notice, when it has one worth telling. */
+  notice: { id: number; kind: NoticeKind; reason?: AppErrorKind } | null
 }
 
 export const uiStore = createStore<UiState>(() => ({
@@ -42,9 +47,9 @@ export const uiStore = createStore<UiState>(() => ({
 
 let noticeCounter = 0
 
-export function notify(kind: NoticeKind): void {
+export function notify(kind: NoticeKind, reason?: AppErrorKind): void {
   noticeCounter += 1
-  uiStore.setState({ notice: { id: noticeCounter, kind } })
+  uiStore.setState({ notice: { id: noticeCounter, kind, ...(reason && { reason }) } })
 }
 
 export function openView(view: View): void {

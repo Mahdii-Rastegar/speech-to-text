@@ -5,7 +5,9 @@ export type AppErrorKind =
   | 'live-unsupported'
   | 'provider-unavailable'
   | 'provider-blocked'
+  | 'missing-api-key'
   | 'invalid-api-key'
+  | 'no-credit'
   | 'rate-limited'
   | 'model-unavailable'
   | 'local-engine-missing'
@@ -32,7 +34,9 @@ const TRAITS: Record<AppErrorKind, Pick<AppError, 'retryable' | 'canSwitchToLoca
   'live-unsupported': { retryable: false, canSwitchToLocal: true },
   'provider-unavailable': { retryable: true, canSwitchToLocal: true },
   'provider-blocked': { retryable: true, canSwitchToLocal: true },
+  'missing-api-key': { retryable: false, canSwitchToLocal: true },
   'invalid-api-key': { retryable: false, canSwitchToLocal: true },
+  'no-credit': { retryable: false, canSwitchToLocal: true },
   'rate-limited': { retryable: true, canSwitchToLocal: true },
   'model-unavailable': { retryable: false, canSwitchToLocal: true },
   'local-engine-missing': { retryable: false, canSwitchToLocal: false },

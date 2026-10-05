@@ -90,10 +90,10 @@ test.describe('settings', () => {
   })
 
   test('never stores the API key in the demo', async ({ page }) => {
-    const field = page.getByLabel('کلید OpenRouter')
+    const field = page.getByLabel('کلید OpenRouter', { exact: true })
     await field.fill('sk-or-test-not-a-real-key')
     await expect(field).toHaveAttribute('type', 'password')
-    await page.getByRole('button', { name: 'ذخیره' }).click()
+    await page.getByRole('button', { name: 'ذخیره کلید OpenRouter' }).click()
 
     await expect(field).toHaveValue('')
     const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }))

@@ -14,7 +14,8 @@ import {
 import { RadioGroup } from 'radix-ui'
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
 import { previewError } from '@/app/recordingController'
-import { FALLBACK_PROVIDER_ID, providers } from '@/app/services'
+import { cloud, FALLBACK_PROVIDER_ID, providers } from '@/app/services'
+import { removeKey, saveKey, testKey, useKeys } from '@/app/stores/keysStore'
 import { useRecording } from '@/app/stores/recordingStore'
 import { clearSessions, useSessions } from '@/app/stores/sessionsStore'
 import { updateSettings, useSettings } from '@/app/stores/settingsStore'
@@ -25,10 +26,12 @@ import {
   requestMicrophoneAccess,
   type MicrophoneInfo,
 } from '@/audio/devices'
+import { DEFAULT_AI_MODELS } from '@/core/ai/chat'
+import { CLOUD_PROVIDERS, type CloudProviderId } from '@/core/cloud/transport'
 import type { AppErrorKind } from '@/core/errors'
 import { toPersianDigits } from '@/core/format/digits'
 import { isBusy } from '@/core/recording/machine'
-import { GLOSSARY_MAX_LENGTH } from '@/core/settings'
+import { AI_MODEL_MAX_LENGTH, GLOSSARY_MAX_LENGTH } from '@/core/settings'
 import { cn } from '@/ui/format'
 import { fa } from '@/ui/strings/fa'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -127,12 +130,9 @@ function EngineSection() {
 /** Radio value for "no specific microphone"; the stored setting for it is an empty id. */
 const SYSTEM_MICROPHONE = 'system-default'
 
-const MICROPHONE_ROW =
-  'group flex min-h-12 w-full items-center gap-3 rounded-[0.625rem] px-2.5 py-2 text-start transition-colors duration-150 hover:bg-hover disabled:opacity-50 data-[state=checked]:bg-hover'
-
 function MicrophoneRow({ value, title, hint }: { value: string; title: string; hint?: string }) {
   return (
-    <RadioGroup.Item value={value} className={MICROPHONE_ROW}>
+    <RadioGroup.Item value={value} className={RADIO_ROW}>
       <span className="grid size-4 shrink-0 place-items-center rounded-full border border-line-strong group-data-[state=checked]:border-live">
         <RadioGroup.Indicator className="size-2 rounded-full bg-live" />
       </span>
@@ -257,6 +257,77 @@ function GlossarySection() {
   )
 }
 
+const RADIO_ROW =
+  'group flex min-h-12 w-full items-center gap-3 rounded-[0.625rem] px-2.5 py-2 text-start transition-colors duration-150 hover:bg-hover disabled:opacity-50 data-[state=checked]:bg-hover'
+
+const TEXT_FIELD =
+  'h-11 w-full rounded-[0.625rem] border border-line-strong bg-backdrop/60 px-3 font-mono text-sm text-ink placeholder:text-ink-3'
+
+/** Which service does the AI step, and with which of its models. */
+function AiServiceFields() {
+  const aiProviderId = useSettings((settings) => settings.aiProviderId)
+  const aiModel = useSettings((settings) => settings.aiModel)
+  const hasKey = useKeys((keys) => keys[aiProviderId])
+  const headingId = useId()
+  const modelId = useId()
+  const modelHintId = useId()
+
+  return (
+    <div className="mt-4 border-t border-line pt-4">
+      <h4 id={headingId} className="text-xs font-medium text-ink-3">
+        {fa.settings.aiProviderTitle}
+      </h4>
+      <RadioGroup.Root
+        dir="rtl"
+        value={aiProviderId}
+        // Each service has its own model names, so the choice of model starts over.
+        onValueChange={(value) =>
+          updateSettings({ aiProviderId: value as CloudProviderId, aiModel: '' })
+        }
+        aria-labelledby={headingId}
+        className="-mx-2.5 mt-2 grid gap-1"
+      >
+        {CLOUD_PROVIDERS.map((provider) => (
+          <RadioGroup.Item key={provider} value={provider} className={RADIO_ROW}>
+            <span className="grid size-4 shrink-0 place-items-center rounded-full border border-line-strong group-data-[state=checked]:border-live">
+              <RadioGroup.Indicator className="size-2 rounded-full bg-live" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm text-ink">{fa.cloudProviders[provider].name}</span>
+              <span className="mt-0.5 block text-xs leading-5 text-ink-3">
+                {fa.cloudProviders[provider].hint}
+              </span>
+            </span>
+          </RadioGroup.Item>
+        ))}
+      </RadioGroup.Root>
+      {!hasKey && <p className="mt-2 text-xs leading-5 text-rec">{fa.settings.aiKeyMissing}</p>}
+
+      <label htmlFor={modelId} className="mt-4 block text-sm text-ink">
+        {fa.settings.aiModelLabel}
+      </label>
+      <input
+        id={modelId}
+        dir="ltr"
+        type="text"
+        value={aiModel}
+        maxLength={AI_MODEL_MAX_LENGTH}
+        onChange={(event) => updateSettings({ aiModel: event.target.value.trim() })}
+        autoComplete="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        placeholder={DEFAULT_AI_MODELS[aiProviderId]}
+        aria-describedby={modelHintId}
+        className={cn(TEXT_FIELD, 'mt-2 sm:max-w-96')}
+      />
+      <p id={modelHintId} className="mt-2 text-xs leading-5 text-ink-3">
+        {fa.settings.aiModelHint}
+      </p>
+      <p className="mt-2 text-xs leading-5 text-ink-3">{fa.settings.aiPrivacy}</p>
+    </div>
+  )
+}
+
 function AiSection() {
   const aiEnabled = useSettings((settings) => settings.aiEnabled)
   const cleanEnabled = useSettings((settings) => settings.cleanEnabled)
@@ -286,75 +357,167 @@ function AiSection() {
           onChange={(checked) => updateSettings({ summaryEnabled: checked })}
         />
       </div>
+      {cloud && <AiServiceFields />}
     </Section>
   )
 }
 
+const KEY_PLACEHOLDERS: Record<CloudProviderId, string> = {
+  openrouter: 'sk-or-…',
+  google: 'AIza…',
+}
+
+/** What the service said about the stored key, once it has been asked. */
+type KeyCheck = 'unknown' | 'checking' | 'valid' | AppErrorKind
+
+function keyStatusText(stored: boolean, check: KeyCheck): string {
+  if (!stored) return fa.settings.keyNone
+  if (check === 'unknown') return fa.settings.keyStored
+  if (check === 'checking') return fa.settings.keyChecking
+  if (check === 'valid') return fa.settings.keyValid
+  return fa.settings.keyCheckFailed.replace('{reason}', fa.errors[check].title)
+}
+
 /**
- * Demo of the key field. The value lives only in this component while it is
- * being typed and is dropped on save: nothing is stored or sent anywhere.
+ * The key of one cloud service. What is typed lives only in this component
+ * until it is saved; after that the field is emptied and the key cannot be
+ * shown again, only replaced, checked or removed. The browser demo has
+ * nowhere safe to keep a key, so there the value is simply dropped.
  */
-function KeySection() {
+function KeyField({ provider }: { provider: CloudProviderId }) {
+  const stored = useKeys((keys) => keys[provider])
   const [value, setValue] = useState('')
   const [shown, setShown] = useState(false)
+  const [check, setCheck] = useState<KeyCheck>('unknown')
   const fieldId = useId()
-  const hintId = useId()
+  const statusId = useId()
+  const label = fa.cloudProviders[provider].keyLabel
+  const named = (action: string) =>
+    fa.settings.keyActionFor.replace('{action}', action).replace('{key}', label)
 
-  const save = (event: FormEvent) => {
-    event.preventDefault()
-    setValue('')
-    setShown(false)
-    notify('key-not-saved')
+  const runCheck = async () => {
+    setCheck('checking')
+    const error = await testKey(provider)
+    setCheck(error ? error.kind : 'valid')
   }
 
+  const save = async (event: FormEvent) => {
+    event.preventDefault()
+    const key = value
+    setValue('')
+    setShown(false)
+    if (!cloud) {
+      notify('key-not-saved')
+      return
+    }
+    try {
+      await saveKey(provider, key)
+    } catch {
+      notify('key-save-failed')
+      return
+    }
+    notify('key-saved')
+    await runCheck()
+  }
+
+  const remove = async () => {
+    await removeKey(provider).catch(() => {})
+    setCheck('unknown')
+    notify('key-deleted')
+  }
+
+  const failed = stored && check !== 'unknown' && check !== 'checking' && check !== 'valid'
+
   return (
-    <Section icon={KeyRound} title={fa.settings.keySection}>
-      <form onSubmit={save}>
-        <label htmlFor={fieldId} className="text-sm text-ink">
-          {fa.settings.keyLabel}
-        </label>
-        <div className="mt-2 flex gap-2">
-          <div className="relative min-w-0 flex-1">
-            <input
-              id={fieldId}
-              dir="ltr"
-              type={shown ? 'text' : 'password'}
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              autoComplete="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              placeholder="sk-or-…"
-              aria-describedby={hintId}
-              className="h-11 w-full rounded-[0.625rem] border border-line-strong bg-backdrop/60 pr-11 pl-3 font-mono text-sm text-ink placeholder:text-ink-3"
-            />
-            <button
-              type="button"
-              onClick={() => setShown(!shown)}
-              aria-label={shown ? fa.settings.keyHide : fa.settings.keyShow}
-              aria-pressed={shown}
-              className="icon-btn absolute top-0 right-0"
-            >
-              {shown ? (
-                <EyeOff aria-hidden="true" className="size-[1.125rem]" />
-              ) : (
-                <Eye aria-hidden="true" className="size-[1.125rem]" />
-              )}
-            </button>
-          </div>
+    <form onSubmit={(event) => void save(event)}>
+      <label htmlFor={fieldId} className="text-sm text-ink">
+        {label}
+      </label>
+      <div className="mt-2 flex gap-2">
+        <div className="relative min-w-0 flex-1">
+          <input
+            id={fieldId}
+            dir="ltr"
+            type={shown ? 'text' : 'password'}
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            placeholder={stored ? fa.settings.keyReplace : KEY_PLACEHOLDERS[provider]}
+            aria-describedby={statusId}
+            className={cn(TEXT_FIELD, 'pr-11 placeholder:font-sans')}
+          />
           <button
-            type="submit"
-            disabled={value.trim().length === 0}
-            className="btn btn-primary h-11"
+            type="button"
+            onClick={() => setShown(!shown)}
+            aria-label={named(shown ? fa.settings.keyHide : fa.settings.keyShow)}
+            aria-pressed={shown}
+            className="icon-btn absolute top-0 right-0"
           >
-            {fa.settings.keySave}
+            {shown ? (
+              <EyeOff aria-hidden="true" className="size-[1.125rem]" />
+            ) : (
+              <Eye aria-hidden="true" className="size-[1.125rem]" />
+            )}
           </button>
         </div>
-        <p className="mt-2 text-xs text-ink-2">{fa.settings.keyNone}</p>
-        <p id={hintId} className="mt-1 text-xs leading-5 text-ink-3">
-          {fa.settings.keyHint}
-        </p>
-      </form>
+        <button
+          type="submit"
+          disabled={value.trim().length === 0}
+          aria-label={named(fa.settings.keySave)}
+          className="btn btn-primary h-11"
+        >
+          {fa.settings.keySave}
+        </button>
+      </div>
+      <div className="mt-2 flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <output
+          id={statusId}
+          className={cn(
+            'text-xs leading-5',
+            failed ? 'text-rec' : check === 'valid' && stored ? 'text-live' : 'text-ink-2',
+          )}
+        >
+          {keyStatusText(stored, check)}
+        </output>
+        {stored && (
+          <span className="flex gap-1">
+            <button
+              type="button"
+              onClick={() => void runCheck()}
+              disabled={check === 'checking'}
+              aria-label={named(fa.settings.keyCheck)}
+              className="btn btn-secondary h-8 px-3 text-xs"
+            >
+              {fa.settings.keyCheck}
+            </button>
+            <button
+              type="button"
+              onClick={() => void remove()}
+              aria-label={named(fa.settings.keyDelete)}
+              className="btn h-8 border border-rec/40 px-3 text-xs text-rec hover:bg-rec/10"
+            >
+              {fa.settings.keyDelete}
+            </button>
+          </span>
+        )}
+      </div>
+    </form>
+  )
+}
+
+function KeySection() {
+  return (
+    <Section icon={KeyRound} title={fa.settings.keySection}>
+      <div className="grid gap-5">
+        {CLOUD_PROVIDERS.map((provider) => (
+          <KeyField key={provider} provider={provider} />
+        ))}
+      </div>
+      <p className="mt-3 text-xs leading-5 text-ink-3">
+        {cloud ? fa.settings.keyHint : fa.settings.keyHintDemo}
+      </p>
     </Section>
   )
 }
