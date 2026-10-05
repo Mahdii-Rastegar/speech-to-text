@@ -8,6 +8,7 @@ export type AppErrorKind =
   | 'invalid-api-key'
   | 'rate-limited'
   | 'model-unavailable'
+  | 'local-engine-missing'
   | 'offline'
   | 'timeout'
   | 'unknown'
@@ -32,6 +33,7 @@ const TRAITS: Record<AppErrorKind, Pick<AppError, 'retryable' | 'canSwitchToLoca
   'invalid-api-key': { retryable: false, canSwitchToLocal: true },
   'rate-limited': { retryable: true, canSwitchToLocal: true },
   'model-unavailable': { retryable: false, canSwitchToLocal: true },
+  'local-engine-missing': { retryable: false, canSwitchToLocal: false },
   offline: { retryable: true, canSwitchToLocal: true },
   timeout: { retryable: true, canSwitchToLocal: true },
   unknown: { retryable: true, canSwitchToLocal: false },
@@ -39,4 +41,21 @@ const TRAITS: Record<AppErrorKind, Pick<AppError, 'retryable' | 'canSwitchToLoca
 
 export function createAppError(kind: AppErrorKind, detail?: string): AppError {
   return detail === undefined ? { kind, ...TRAITS[kind] } : { kind, ...TRAITS[kind], detail }
+}
+
+/** Carries an AppError through a rejected promise. */
+export class AppFailure extends Error {
+  readonly appError: AppError
+
+  constructor(appError: AppError) {
+    super(appError.detail ?? appError.kind)
+    this.name = 'AppFailure'
+    this.appError = appError
+  }
+}
+
+/** The AppError behind anything that was thrown; unrecognized causes become `unknown`. */
+export function toAppError(cause: unknown): AppError {
+  if (cause instanceof AppFailure) return cause.appError
+  return createAppError('unknown', cause instanceof Error ? cause.message : undefined)
 }

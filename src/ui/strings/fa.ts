@@ -72,6 +72,10 @@ const errors: Record<AppErrorKind, { title: string; body: string }> = {
     title: 'مدل انتخاب‌شده در دسترس نیست',
     body: 'مدل دیگری را در تنظیمات انتخاب کنید.',
   },
+  'local-engine-missing': {
+    title: 'موتور محلی یا فایل مدل پیدا نشد',
+    body: 'فایل‌های موتور محلی (whisper.cpp) و مدل باید در پوشه‌ی برنامه باشند.',
+  },
   offline: {
     title: 'اتصال اینترنت برقرار نیست',
     body: 'موتور محلی بدون اینترنت کار می‌کند.',
@@ -88,6 +92,7 @@ const errors: Record<AppErrorKind, { title: string; body: string }> = {
 
 /** Display names for engines. Unknown ids fall back to the id itself. */
 const providers: Record<string, { name: string; hint?: string }> = {
+  'local-whisper': { name: 'Whisper محلی' },
   'demo-local': { name: 'Whisper محلی' },
   'demo-cloud': { name: 'OpenRouter' },
   'demo-failing': { name: 'سرویس ناموجود', hint: 'برای دیدن حالت خطا' },
@@ -97,6 +102,8 @@ export const fa = {
   demo: {
     badge: 'نمایشی',
     note: 'نسخه‌ی نمایشی: میکروفون واقعی است، ولی متن‌ها هنوز نمونه‌اند. صدا ذخیره یا ارسال نمی‌شود.',
+    localNote:
+      'موتور محلی: متن روی همین دستگاه و بدون اینترنت ساخته می‌شود. صدا ذخیره یا ارسال نمی‌شود.',
   },
   recorder: {
     region: 'ضبط',
@@ -130,6 +137,9 @@ export const fa = {
     heroRest: 'همان لحظه متن می‌شود.',
     emptyTitle: 'برای شروع، دکمه‌ی ضبط را بزنید و صحبت کنید.',
     emptyBody: 'متن همین‌جا، هم‌زمان با صحبت شما نوشته می‌شود.',
+    emptyBodyAfterStop: 'متن همین‌جا، بعد از پایان ضبط نوشته می‌شود.',
+    textAfterStop: 'در حال گوش دادن… متن بعد از پایان ضبط نوشته می‌شود.',
+    writing: 'در حال نوشتن متن…',
     capturedSoFar: 'متن ثبت‌شده تا این لحظه',
     availableAfterStop: 'بعد از پایان ضبط در دسترس است',
     cleanCaption: 'نسخه‌ی پاک‌شده با AI',
@@ -198,6 +208,11 @@ export const fa = {
     microphoneNeedsAccess:
       'برای دیدن نام میکروفون‌ها، برنامه یک بار اجازه‌ی دسترسی به میکروفون می‌خواهد. چیزی ضبط نمی‌شود.',
     microphoneAccessDenied: 'اجازه‌ی میکروفون داده نشد، برای همین فهرست قابل نمایش نیست.',
+    glossarySection: 'واژه‌نامه‌ی شخصی',
+    glossaryLabel: 'اسم‌ها و اصطلاح‌هایی که زیاد می‌گویید',
+    glossaryHint:
+      'با ویرگول جدا کنید. موتور محلی این کلمه‌ها را درست‌تر می‌نویسد، مخصوصاً اصطلاح‌های انگلیسی وسط جمله‌ی فارسی.',
+    glossaryPlaceholder: 'API, Deploy, prompt, backend',
     aiSection: 'پردازش با AI',
     aiMasterHint:
       'بعد از پایان هر ضبط، متن خودکار پردازش می‌شود. متن خام همیشه دست‌نخورده می‌ماند.',

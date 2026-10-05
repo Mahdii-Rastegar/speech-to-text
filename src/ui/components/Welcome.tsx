@@ -1,7 +1,9 @@
 import { AudioLines, HardDrive, Sparkles, type LucideIcon } from 'lucide-react'
 import { useId } from 'react'
 import { APP_NAME } from '@/app/config'
+import { isDemoProvider } from '@/app/services'
 import { updateSettings } from '@/app/stores/settingsStore'
+import { useProvider } from '@/ui/hooks/useProvider'
 import { fa } from '@/ui/strings/fa'
 import { LanguageRadios } from './EnginePicker'
 import { VoiceMark } from './Wordmark'
@@ -11,6 +13,8 @@ const POINT_ICONS: readonly LucideIcon[] = [AudioLines, HardDrive, Sparkles]
 /** First run: what the app does, one choice worth making up front, and the way in. */
 export function Welcome() {
   const languageHeadingId = useId()
+  const provider = useProvider()
+  const demo = provider !== undefined && isDemoProvider(provider.id)
 
   return (
     <main className="h-full overflow-y-auto">
@@ -56,7 +60,9 @@ export function Welcome() {
         >
           {fa.welcome.start}
         </button>
-        <p className="mt-4 text-center text-xs leading-5 text-ink-3">{fa.demo.note}</p>
+        <p className="mt-4 text-center text-xs leading-5 text-ink-3">
+          {demo ? fa.demo.note : fa.demo.localNote}
+        </p>
       </div>
     </main>
   )

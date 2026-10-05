@@ -2,27 +2,41 @@ import { createLevelMeter } from '@/audio/level'
 import { createDemoAIProcessor } from '@/core/ai/providers/demo'
 import { createDemoProvider } from '@/core/stt/providers/demo'
 import { createProviderRegistry } from '@/core/stt/registry'
+import {
+  createLocalWhisperProvider,
+  hasNativeEngine,
+  LOCAL_WHISPER_ID,
+} from '@/platform/tauri/localWhisper'
 
 /**
  * Composition root: the one place that decides which engines exist.
- * Until the real engines arrive, every provider here is a scripted demo;
- * the microphone and its level are real.
+ * The desktop app has the real local engine. Everything else is still a
+ * scripted demo: the cloud engines, the AI step, and in the browser the local
+ * engine too. The microphone and its level are real everywhere.
  */
 
 /** Made-up list price so the cloud-styled demo can show an estimated cost. */
 const DEMO_CLOUD_USD_PER_SECOND = 0.00001
 
-export const FALLBACK_PROVIDER_ID = 'demo-local'
+const nativeEngine = hasNativeEngine()
+
+/** Used when the stored choice is not available on this platform. */
+export const FALLBACK_PROVIDER_ID = nativeEngine ? LOCAL_WHISPER_ID : 'demo-local'
+
+/** Engines that play a script instead of recognizing speech. */
+export const isDemoProvider = (id: string): boolean => id.startsWith('demo-')
 
 export const providers = createProviderRegistry()
 
 providers.register(
-  createDemoProvider({
-    id: 'demo-local',
-    kind: 'local',
-    models: [{ id: 'large-v3-turbo' }],
-    usdPerAudioSecond: null,
-  }),
+  nativeEngine
+    ? createLocalWhisperProvider()
+    : createDemoProvider({
+        id: 'demo-local',
+        kind: 'local',
+        models: [{ id: 'large-v3-turbo' }],
+        usdPerAudioSecond: null,
+      }),
 )
 providers.register(
   createDemoProvider({

@@ -10,6 +10,11 @@
  *
  *   cargo/   rustup/        CARGO_HOME and RUSTUP_HOME
  *   msvc/                   output of mmozeiko's portable-msvc.py
+ *
+ * The local speech engine uses the graphics card only if it finds the cuBLAS
+ * libraries (cublas64_11.dll, cublasLt64_11.dll). If they are not beside the
+ * engine, name their folder in STT_CUDA_DLL_DIR or on the first line of a
+ * `cuda.local` file (not committed). Without them the engine runs on the CPU.
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
@@ -19,9 +24,10 @@ import { fileURLToPath } from 'node:url'
 
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-function toolchainDir() {
-  if (process.env.STT_TOOLCHAIN_DIR) return process.env.STT_TOOLCHAIN_DIR
-  const pointer = join(projectRoot, 'toolchain.local')
+/** A folder named by an environment variable or by the first line of a local pointer file. */
+function localFolder(variable, pointerFile) {
+  if (process.env[variable]) return process.env[variable]
+  const pointer = join(projectRoot, pointerFile)
   if (!existsSync(pointer)) return undefined
   return readFileSync(pointer, 'utf8').split(/\r?\n/)[0].trim() || undefined
 }
@@ -74,8 +80,11 @@ function portableToolchainEnv(root) {
   return env
 }
 
-const root = toolchainDir()
-const env = root ? portableToolchainEnv(root) : process.env
+const root = localFolder('STT_TOOLCHAIN_DIR', 'toolchain.local')
+const env = root ? portableToolchainEnv(root) : { ...process.env }
+
+const cudaDir = localFolder('STT_CUDA_DLL_DIR', 'cuda.local')
+if (cudaDir) env.STT_CUDA_DLL_DIR = cudaDir
 
 const cliPackage = createRequire(import.meta.url).resolve('@tauri-apps/cli/package.json')
 const cli = join(dirname(cliPackage), 'tauri.js')

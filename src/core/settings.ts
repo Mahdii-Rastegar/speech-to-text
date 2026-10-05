@@ -7,6 +7,8 @@ export interface Settings {
   language: LanguageSetting
   /** Id of the microphone to record from. Empty means whatever the system has as its default. */
   microphoneId: string
+  /** Names and English terms the user says often; given to the engine as a spelling hint. */
+  glossary: string
   /** Master switch for the AI step that runs after transcription. */
   aiEnabled: boolean
   cleanEnabled: boolean
@@ -20,11 +22,15 @@ export const DEFAULT_SETTINGS: Settings = {
   sttModel: 'large-v3-turbo',
   language: 'auto',
   microphoneId: '',
+  glossary: '',
   aiEnabled: false,
   cleanEnabled: true,
   summaryEnabled: false,
   onboarded: false,
 }
+
+/** Whisper reads only a short hint; the engine cuts off anything longer anyway. */
+export const GLOSSARY_MAX_LENGTH = 400
 
 const LANGUAGES: readonly LanguageSetting[] = ['auto', 'fa', 'en']
 
@@ -49,6 +55,8 @@ export function parseSettings(raw: unknown): Settings {
     sttModel: stringOr(value.sttModel, DEFAULT_SETTINGS.sttModel),
     language: isLanguage(value.language) ? value.language : DEFAULT_SETTINGS.language,
     microphoneId: typeof value.microphoneId === 'string' ? value.microphoneId : '',
+    glossary:
+      typeof value.glossary === 'string' ? value.glossary.slice(0, GLOSSARY_MAX_LENGTH) : '',
     aiEnabled: booleanOr(value.aiEnabled, DEFAULT_SETTINGS.aiEnabled),
     cleanEnabled: booleanOr(value.cleanEnabled, DEFAULT_SETTINGS.cleanEnabled),
     summaryEnabled: booleanOr(value.summaryEnabled, DEFAULT_SETTINGS.summaryEnabled),

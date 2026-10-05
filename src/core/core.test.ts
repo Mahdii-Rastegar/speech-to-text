@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createDemoAIProcessor } from './ai/providers/demo'
 import { createAppError } from './errors'
 import { addCosts } from './session'
-import { DEFAULT_SETTINGS, parseSettings } from './settings'
+import { DEFAULT_SETTINGS, GLOSSARY_MAX_LENGTH, parseSettings } from './settings'
 import { joinSegments } from './stt/provider'
 import { createDemoProvider } from './stt/providers/demo'
 import { DEMO_SCRIPT } from './stt/providers/demoScript'
@@ -48,6 +48,12 @@ describe('parseSettings', () => {
       aiEnabled: true,
     })
     expect(parseSettings({ microphoneId: 7 }).microphoneId).toBe('')
+  })
+
+  it('keeps the glossary and cuts it at the length the engine reads', () => {
+    expect(parseSettings({ glossary: 'API, Deploy' }).glossary).toBe('API, Deploy')
+    expect(parseSettings({ glossary: 'x'.repeat(1000) }).glossary).toHaveLength(GLOSSARY_MAX_LENGTH)
+    expect(parseSettings({ glossary: 5 }).glossary).toBe('')
   })
 })
 

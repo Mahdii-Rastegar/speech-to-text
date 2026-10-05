@@ -24,6 +24,8 @@ export type AudioInput =
 export interface TranscribeOptions {
   model: string
   language: LanguageSetting
+  /** Words the speaker is likely to say (names, English terms), to steer the spelling. */
+  prompt?: string
 }
 
 export interface TranscriptSegment {
@@ -73,6 +75,8 @@ export interface STTProvider {
   readonly models: readonly ModelInfo[]
   getCapabilities(): STTCapabilities
   validateConfiguration(): Promise<ConfigValidation>
+  /** Gets `model` ready ahead of the first request. Engines with nothing to load leave this out. */
+  warmUp?(model: string): void
   transcribe(
     audio: AudioInput,
     options: TranscribeOptions,
@@ -80,7 +84,7 @@ export interface STTProvider {
   ): Promise<TranscriptionResult>
   /**
    * Native live transcription. Batch-only engines leave this out and are wrapped
-   * by the chunking live transcriber instead.
+   * by the buffered live session instead.
    */
   transcribeStream?(options: TranscribeOptions): LiveSession
   /** Null when the engine is free to run (local inference). */

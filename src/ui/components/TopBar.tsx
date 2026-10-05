@@ -1,10 +1,15 @@
 import { History, Settings } from 'lucide-react'
+import { isDemoProvider } from '@/app/services'
 import { openView, uiStore } from '@/app/stores/uiStore'
+import { useProvider } from '@/ui/hooks/useProvider'
 import { fa } from '@/ui/strings/fa'
 import { StatusChip } from './StatusChip'
 import { Wordmark } from './Wordmark'
 
 export function TopBar() {
+  const provider = useProvider()
+  const demo = provider !== undefined && isDemoProvider(provider.id)
+
   return (
     <header className="shrink-0 pt-[env(safe-area-inset-top)]">
       <div className="flex h-14 items-center gap-2 px-2 sm:px-4 lg:px-6">
@@ -20,12 +25,14 @@ export function TopBar() {
 
         <div className="ms-auto flex items-center gap-2.5 lg:ms-0">
           <StatusChip />
-          <span
-            title={fa.demo.note}
-            className="hidden rounded-full border border-line-strong px-2.5 py-1 text-xs text-ink-3 sm:inline-block"
-          >
-            {fa.demo.badge}
-          </span>
+          {demo && (
+            <span
+              title={fa.demo.note}
+              className="hidden rounded-full border border-line-strong px-2.5 py-1 text-xs text-ink-3 sm:inline-block"
+            >
+              {fa.demo.badge}
+            </span>
+          )}
         </div>
 
         <button

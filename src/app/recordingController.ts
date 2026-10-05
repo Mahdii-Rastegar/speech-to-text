@@ -1,7 +1,7 @@
 import { CAPTURE_SAMPLE_RATE, openMicrophone, type MicrophoneCapture } from '@/audio/microphone'
 import { SILENCE_DB } from '@/core/audio/signal'
 import { createVad } from '@/core/audio/vad'
-import { createAppError, type AppError, type AppErrorKind } from '@/core/errors'
+import { createAppError, toAppError, type AppError, type AppErrorKind } from '@/core/errors'
 import { isBusy } from '@/core/recording/machine'
 import {
   addCosts,
@@ -10,6 +10,7 @@ import {
   type TranscriptionSession,
 } from '@/core/session'
 import type { Settings } from '@/core/settings'
+import { createBufferedLiveSession } from '@/core/stt/bufferedLive'
 import {
   joinSegments,
   type LiveEvent,
@@ -128,16 +129,11 @@ async function beginRecording(): Promise<void> {
   uiStore.setState({ version: 'raw' })
   dispatchRecording({ type: 'START_REQUESTED' })
 
-  if (!provider.transcribeStream) {
-    dispatchRecording({
-      type: 'FAILED',
-      error: createAppError('live-unsupported'),
-      at: Date.now(),
-    })
-    return
-  }
-
-  const opened = await openMicrophone(settings.microphoneId)
+  // Both start inside the click: asking for the microphone later could lose the right to ask.
+  const [validation, opened] = await Promise.all([
+    provider.validateConfiguration(),
+    openMicrophone(settings.microphoneId),
+  ])
   if (recordingStore.getState().phase !== 'starting') {
     // The request was dropped while the permission prompt was open.
     if (opened.ok) opened.capture.stop()
@@ -148,17 +144,26 @@ async function beginRecording(): Promise<void> {
     return
   }
   const { capture } = opened
-
-  let live: LiveSession
-  try {
-    live = provider.transcribeStream({ model, language: settings.language })
-  } catch (cause) {
+  if (!validation.ok) {
     capture.stop()
     dispatchRecording({
       type: 'FAILED',
-      error: createAppError('unknown', cause instanceof Error ? cause.message : undefined),
+      error: validation.error ?? createAppError('unknown'),
       at: Date.now(),
     })
+    return
+  }
+
+  const options = { model, language: settings.language, prompt: settings.glossary }
+  let live: LiveSession
+  try {
+    provider.warmUp?.(model)
+    live =
+      provider.transcribeStream?.(options) ??
+      createBufferedLiveSession(provider, options, CAPTURE_SAMPLE_RATE)
+  } catch (cause) {
+    capture.stop()
+    dispatchRecording({ type: 'FAILED', error: toAppError(cause), at: Date.now() })
     return
   }
 
@@ -196,7 +201,7 @@ export async function stopRecording(): Promise<void> {
   try {
     result = await run.live.stop()
   } catch (cause) {
-    failRun(createAppError('unknown', cause instanceof Error ? cause.message : undefined))
+    failRun(toAppError(cause))
     return
   }
 

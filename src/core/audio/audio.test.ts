@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { concatSamples, toPcm16 } from './pcm'
 import { createResampler } from './resample'
 import { rmsOf, SILENCE_DB, toDecibels } from './signal'
 import { concat, noise, silence, sine } from './testSignals'
@@ -107,5 +108,22 @@ describe('voice activity detector', () => {
     }
     expect(chunked).toEqual(whole)
     expect(vad.speaking).toBe(false)
+  })
+})
+
+describe('pcm', () => {
+  it('joins blocks in order', () => {
+    const joined = concatSamples([
+      Float32Array.of(0.1, 0.2),
+      new Float32Array(0),
+      Float32Array.of(0.3),
+    ])
+    expect([...joined]).toEqual([...Float32Array.of(0.1, 0.2, 0.3)])
+  })
+
+  it('converts to 16-bit and clips what is too loud', () => {
+    expect([...toPcm16(Float32Array.of(0, 0.5, 1, -1, 1.7, -3))]).toEqual([
+      0, 16384, 32767, -32767, 32767, -32767,
+    ])
   })
 })

@@ -2,7 +2,7 @@
 
 Offline-first speech-to-text for Persian and English: live transcription, local Whisper, optional cloud engines and AI clean-up. Windows desktop (Tauri) and iPhone (PWA) from one codebase.
 
-**Status: work in progress.** The microphone is real: capture, the level display and speech/silence detection work. The text still comes from a scripted demo engine. Audio stays in memory on the device; it is not stored and no network requests are made.
+**Status: work in progress.** In the desktop app, recordings are transcribed offline by a local Whisper engine (whisper.cpp, `large-v3-turbo`); the text appears after the recording stops. In the browser the text still comes from a scripted demo engine, and the cloud engines and the AI step are demos everywhere. Audio stays in memory on the device; it is not stored and no network requests are made.
 
 ## Development
 
@@ -28,6 +28,13 @@ pnpm tauri build  # optimised executable in src-tauri/target/release
 
 This needs Rust (stable, `x86_64-pc-windows-msvc`), the MSVC C++ build tools with a Windows SDK, and the WebView2 runtime (part of Windows 11 and current Windows 10). If the build tools are not installed system-wide, `scripts/tauri.mjs` can use a self-contained toolchain folder; the comment at the top of that file explains how.
 
+The local engine is not part of the repository yet (an in-app download comes later). Development builds look for these, in the project folder:
+
+- `bench/tools/whisper-cpp/Release/` (or `engine/`): a Windows release of [whisper.cpp](https://github.com/ggml-org/whisper.cpp/releases) with `whisper-server.exe`
+- `models/ggml/ggml-large-v3-turbo-q5_0.bin` (or directly in `models/`)
+
+The CUDA build of whisper.cpp uses the graphics card only if it can load `cublas64_11.dll` and `cublasLt64_11.dll`. Put them beside the engine, or name their folder on the first line of a `cuda.local` file next to `package.json`. Without them the engine runs on the CPU, several times slower.
+
 `node scripts/screenshots.mjs` (with the dev server running) saves screenshots of the main states to `test-results/screens/`.
 
 ## Layout
@@ -39,7 +46,9 @@ src/core      Pure TypeScript shared by desktop and PWA: session model, STT prov
 src/app       Composition root, stores, recording controller
 src/audio     Microphone capture (16 kHz mono) and the input level meter
 src/ui        React components, design tokens, interface strings (Persian, RTL)
-src-tauri     Windows desktop shell (Tauri 2, Rust)
+src/platform  What only one platform has: the desktop app's local engine
+src-tauri     Windows desktop shell (Tauri 2, Rust); runs whisper.cpp's server as a
+              child process on 127.0.0.1 and keeps the model loaded
 tests/e2e     Playwright tests
 ```
 

@@ -1,5 +1,6 @@
 import {
   AudioLines,
+  BookA,
   Eye,
   EyeOff,
   FlaskConical,
@@ -27,6 +28,7 @@ import {
 import type { AppErrorKind } from '@/core/errors'
 import { toPersianDigits } from '@/core/format/digits'
 import { isBusy } from '@/core/recording/machine'
+import { GLOSSARY_MAX_LENGTH } from '@/core/settings'
 import { cn } from '@/ui/format'
 import { fa } from '@/ui/strings/fa'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -225,6 +227,36 @@ function MicrophoneSection() {
   )
 }
 
+function GlossarySection() {
+  const glossary = useSettings((settings) => settings.glossary)
+  const fieldId = useId()
+  const hintId = useId()
+
+  return (
+    <Section icon={BookA} title={fa.settings.glossarySection}>
+      <label htmlFor={fieldId} className="text-sm text-ink">
+        {fa.settings.glossaryLabel}
+      </label>
+      <textarea
+        id={fieldId}
+        dir="auto"
+        rows={3}
+        value={glossary}
+        maxLength={GLOSSARY_MAX_LENGTH}
+        onChange={(event) => updateSettings({ glossary: event.target.value })}
+        autoCapitalize="off"
+        spellCheck={false}
+        placeholder={fa.settings.glossaryPlaceholder}
+        aria-describedby={hintId}
+        className="mt-2 block w-full resize-y rounded-[0.625rem] border border-line-strong bg-backdrop/60 px-3 py-2.5 text-sm leading-6 text-ink placeholder:text-ink-3"
+      />
+      <p id={hintId} className="mt-2 text-xs leading-5 text-ink-3">
+        {fa.settings.glossaryHint}
+      </p>
+    </Section>
+  )
+}
+
 function AiSection() {
   const aiEnabled = useSettings((settings) => settings.aiEnabled)
   const cleanEnabled = useSettings((settings) => settings.cleanEnabled)
@@ -408,6 +440,7 @@ export function SettingsView() {
         <div className="mx-auto grid w-full max-w-[46rem] gap-4 px-4 pt-2 pb-10 sm:px-8">
           <EngineSection />
           <MicrophoneSection />
+          <GlossarySection />
           <AiSection />
           <KeySection />
           <DataSection />
