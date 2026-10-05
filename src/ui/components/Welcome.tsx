@@ -1,14 +1,16 @@
-import { AudioLines, HardDrive, Sparkles, type LucideIcon } from 'lucide-react'
+import { AudioLines, HardDrive, KeyRound, Sparkles, type LucideIcon } from 'lucide-react'
 import { useId } from 'react'
 import { APP_NAME } from '@/app/config'
-import { isDemoProvider } from '@/app/services'
+import { HAS_LOCAL_ENGINE, isDemoProvider } from '@/app/services'
 import { updateSettings } from '@/app/stores/settingsStore'
 import { useProvider } from '@/ui/hooks/useProvider'
 import { fa } from '@/ui/strings/fa'
 import { LanguageRadios } from './EnginePicker'
 import { VoiceMark } from './Wordmark'
 
-const POINT_ICONS: readonly LucideIcon[] = [AudioLines, HardDrive, Sparkles]
+const POINT_ICONS: readonly LucideIcon[] = HAS_LOCAL_ENGINE
+  ? [AudioLines, HardDrive, Sparkles]
+  : [AudioLines, KeyRound, Sparkles]
 
 /** First run: what the app does, one choice worth making up front, and the way in. */
 export function Welcome() {
@@ -18,8 +20,11 @@ export function Welcome() {
 
   return (
     <main className="h-full overflow-y-auto">
-      <div className="mx-auto flex min-h-full w-full max-w-[34rem] flex-col justify-center px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-8">
-        <VoiceMark className="h-14 w-28 text-live drop-shadow-[0_0_18px_rgb(92_203_242/0.45)]" />
+      <div className="stagger mx-auto flex min-h-full w-full max-w-[34rem] flex-col justify-center px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-8">
+        <VoiceMark
+          drawn
+          className="h-14 w-28 text-live drop-shadow-[0_0_18px_rgb(92_203_242/0.45)]"
+        />
         <p className="mt-7 text-sm text-ink-3">{fa.welcome.lead.replace('{name}', APP_NAME)}</p>
         <h1 className="mt-1 text-[1.625rem] leading-[1.7] font-bold text-ink sm:text-[2rem]">
           <span className="text-gradient-live">{fa.transcript.heroLead}</span>{' '}
@@ -27,7 +32,7 @@ export function Welcome() {
         </h1>
 
         <ul className="mt-7 grid gap-5">
-          {fa.welcome.points.map((point, index) => {
+          {(HAS_LOCAL_ENGINE ? fa.welcome.points : fa.welcome.pointsWeb).map((point, index) => {
             const Icon = POINT_ICONS[index] ?? AudioLines
             return (
               <li key={point.title} className="flex items-start gap-3.5">

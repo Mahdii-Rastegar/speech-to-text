@@ -2,7 +2,7 @@ import { RotateCcw, Settings, Sparkles, TriangleAlert } from 'lucide-react'
 import { Tabs } from 'radix-ui'
 import { memo, type ReactNode } from 'react'
 import { processSession, retry, switchToLocalAndRetry } from '@/app/recordingController'
-import { FALLBACK_PROVIDER_ID, isDemoProvider, providers } from '@/app/services'
+import { FALLBACK_PROVIDER_ID, HAS_LOCAL_ENGINE, isDemoProvider, providers } from '@/app/services'
 import { useRecording } from '@/app/stores/recordingStore'
 import { useSessions } from '@/app/stores/sessionsStore'
 import { useSettings } from '@/app/stores/settingsStore'
@@ -39,8 +39,11 @@ function EmptyState() {
   const note = demo ? fa.demo.note : offline ? fa.demo.localNote : fa.demo.cloudNote
 
   return (
-    <div className={cn(COLUMN, 'flex min-h-full flex-col justify-center py-10')}>
-      <VoiceMark className="h-14 w-28 text-live drop-shadow-[0_0_18px_rgb(92_203_242/0.45)]" />
+    <div className={cn(COLUMN, 'stagger flex min-h-full flex-col justify-center py-10')}>
+      <VoiceMark
+        drawn
+        className="h-14 w-28 text-live drop-shadow-[0_0_18px_rgb(92_203_242/0.45)]"
+      />
       <h2 className="mt-7 text-[1.625rem] leading-[1.7] font-bold text-ink sm:text-[2rem]">
         <span className="text-gradient-live">{fa.transcript.heroLead}</span>{' '}
         {fa.transcript.heroRest}
@@ -99,14 +102,19 @@ function ErrorPanel({ error }: { error: AppError }) {
   const provider = providers.get(providerId) ?? providers.get(FALLBACK_PROVIDER_ID)
   const alreadyLocal = provider?.getCapabilities().offline ?? false
   const message = fa.errors[error.kind]
+  // Without a local engine, the advice to fall back on it is left out.
+  const body = (!HAS_LOCAL_ENGINE && fa.errorBodiesWithoutLocal[error.kind]) || message.body
 
   return (
-    <div role="alert" className="rounded-[0.875rem] border border-rec/35 bg-rec/8 p-4 sm:p-5">
+    <div
+      role="alert"
+      className="animate-rise rounded-[0.875rem] border border-rec/35 bg-rec/8 p-4 sm:p-5"
+    >
       <div className="flex items-start gap-3">
         <TriangleAlert aria-hidden="true" className="mt-1 size-5 shrink-0 text-rec" />
         <div className="min-w-0">
           <h2 className="text-base leading-7 font-semibold text-ink">{message.title}</h2>
-          <p className="mt-0.5 text-[0.9375rem] leading-7 text-ink-2">{message.body}</p>
+          <p className="mt-0.5 text-[0.9375rem] leading-7 text-ink-2">{body}</p>
           {error.detail && (
             <details className="mt-2 text-xs leading-5 text-ink-3">
               <summary className="cursor-pointer">{fa.errorActions.details}</summary>
@@ -122,7 +130,7 @@ function ErrorPanel({ error }: { error: AppError }) {
                 {fa.errorActions.retry}
               </button>
             )}
-            {error.canSwitchToLocal && !alreadyLocal && (
+            {error.canSwitchToLocal && HAS_LOCAL_ENGINE && !alreadyLocal && (
               <button type="button" onClick={switchToLocalAndRetry} className="btn btn-secondary">
                 {fa.errorActions.switchToLocal}
               </button>
@@ -238,7 +246,10 @@ function AiVersion({
           <Sparkles aria-hidden="true" className="size-3.5" />
           {caption}
         </p>
-        <p dir={detectDirection(text, fallbackDirection)} className="transcript text-ink">
+        <p
+          dir={detectDirection(text, fallbackDirection)}
+          className="transcript animate-rise text-ink"
+        >
           {text}
         </p>
       </>
@@ -248,7 +259,7 @@ function AiVersion({
     return (
       <output className="inline-flex items-center gap-2 text-[0.9375rem] text-ink-2">
         <Sparkles aria-hidden="true" className="size-4 animate-pulse text-ai" />
-        {busyLabel}
+        <span className="text-shimmer">{busyLabel}</span>
       </output>
     )
   }
@@ -397,7 +408,12 @@ export function TranscriptPanel() {
           <div className={cn(COLUMN, 'pt-4 pb-10 sm:pt-6')}>
             {live && <LiveTranscript settling={phase === 'finalizing'} />}
             {failed && <FailedView error={error} capturedText={capturedText} />}
-            {showsSession && <SessionView session={session} version={version} />}
+            {showsSession && (
+              // Keyed, so opening another session or version arrives rather than swaps.
+              <div key={`${session.id}:${version}`} className="animate-rise">
+                <SessionView session={session} version={version} />
+              </div>
+            )}
           </div>
         )}
       </Tabs.Content>

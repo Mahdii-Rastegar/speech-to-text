@@ -128,6 +128,17 @@ const errors: Record<AppErrorKind, { title: string; body: string }> = {
   },
 }
 
+/** The same failures where there is no local engine to fall back on (the web app). */
+const errorBodiesWithoutLocal: Partial<Record<AppErrorKind, string>> = {
+  'live-unsupported': 'موتور دیگری انتخاب کنید.',
+  'provider-blocked':
+    'VPN را روشن کنید و دوباره تلاش کنید. اگر VPN روشن است، سرویس دیگر را در تنظیمات امتحان کنید.',
+  'no-credit': 'حساب خود را در سایت سرویس شارژ کنید، یا سرویس دیگر را در تنظیمات انتخاب کنید.',
+  'rate-limited': 'کمی بعد دوباره تلاش کنید، یا سرویس دیگر را در تنظیمات انتخاب کنید.',
+  offline: 'این نسخه برای تبدیل گفتار به اینترنت نیاز دارد. اتصال را بررسی کنید.',
+  timeout: 'دوباره تلاش کنید.',
+}
+
 /** Display names for engines. Unknown ids fall back to the id itself. */
 const providers: Record<string, { name: string; hint?: string }> = {
   'local-whisper': { name: 'Whisper محلی', hint: 'روی همین کامپیوتر، بدون اینترنت' },
@@ -346,6 +357,8 @@ export const fa = {
       'کلید در Credential Manager ویندوز نگه داشته می‌شود، نه در فایل‌های برنامه، و فقط برای خود همان سرویس فرستاده می‌شود. بعد از ذخیره دیگر نمایش داده نمی‌شود.',
     keyHintDemo:
       'کلید فقط روی همین دستگاه نگه داشته می‌شود و جز برای خود سرویس به جایی فرستاده نمی‌شود. در نسخه‌ی نمایشی ذخیره نمی‌شود.',
+    keyHintWeb:
+      'کلید به‌صورت رمزشده در حافظه‌ی همین مرورگر می‌ماند و فقط برای خود همان سرویس فرستاده می‌شود. مرورگر به امنی برنامه‌ی ویندوز نیست؛ برای گوشی کلیدی جدا با سقف اعتبار کم بسازید.',
     keyNone: 'کلیدی ذخیره نشده است.',
     keyStored: 'کلید ذخیره شده است.',
     keyReplace: 'برای جایگزینی، کلید تازه را وارد کنید',
@@ -384,11 +397,26 @@ export const fa = {
         body: 'با کلید خودتان می‌توانید از موتور ابری، پاک‌سازی و خلاصه‌ی AI استفاده کنید.',
       },
     ],
+    pointsWeb: [
+      {
+        title: 'متن زنده',
+        body: 'جمله‌به‌جمله، هم‌زمان با صحبت شما نوشته می‌شود؛ فارسی، انگلیسی یا ترکیب هر دو.',
+      },
+      {
+        title: 'با کلید خودتان',
+        body: 'صدا با OpenRouter یا Google Gemini متن می‌شود. کلید را یک بار در تنظیمات وارد کنید.',
+      },
+      {
+        title: 'پاک‌سازی و خلاصه با AI',
+        body: 'اگر بخواهید، متن بعد از ضبط مرتب و خلاصه می‌شود. متن خام دست‌نخورده می‌ماند.',
+      },
+    ],
     languageQuestion: 'بیشتر به چه زبانی صحبت می‌کنید؟',
     languageHint: 'بعداً از تنظیمات قابل تغییر است.',
     start: 'شروع کنید',
   },
   errors,
+  errorBodiesWithoutLocal,
   errorActions: {
     retry: 'تلاش دوباره',
     switchToLocal: 'ادامه با موتور محلی',

@@ -14,6 +14,13 @@ export interface CloudRequest {
   body?: unknown
 }
 
+/**
+ * Only plain paths below a provider's address: nothing that could point a
+ * request, and the key that travels with it, somewhere else.
+ */
+export const isPlainPath = (path: string): boolean =>
+  /^\/[A-Za-z0-9/._:-]*$/.test(path) && !path.includes('..') && !path.includes('//')
+
 export interface CloudResponse {
   status: number
   body: string

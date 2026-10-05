@@ -1,0 +1,9 @@
+# Builds the web app (the iPhone PWA) on Netlify. Response headers are in public/_headers,
+# so they also apply when the built `dist` folder is uploaded by hand.
+
+[build]
+  command = "pnpm build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"

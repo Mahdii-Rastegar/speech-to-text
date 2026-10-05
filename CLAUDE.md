@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Avanevis (working name, `APP_NAME` in `src/app/config.ts`): offline-first speech-to-text for Persian and English. One React codebase serves a Windows desktop app (Tauri 2) and, later, an iPhone PWA. The interface is Persian and right-to-left. The project is built in small phases; several parts are still scripted demos (see "Real versus demo").
+Avanevis (working name, `APP_NAME` in `src/app/config.ts`): offline-first speech-to-text for Persian and English. One React codebase serves a Windows desktop app (Tauri 2) and a web app installed on the iPhone as a PWA. The interface is Persian and right-to-left. The project is built in small phases; the development server shows a scripted demo (see "Real versus demo").
 
 ## Commands
 
@@ -17,7 +17,7 @@ pnpm lint                # oxlint
 pnpm format              # prettier --write .
 pnpm test                # Vitest, src/**/*.test.ts, node environment
 pnpm test:e2e            # Playwright in the installed Microsoft Edge
-pnpm build               # tsc -b && vite build
+pnpm build               # tsc -b && vite build; `dist/` is the web app (PWA) as it is hosted
 pnpm tauri dev           # desktop app in a native window, hot reload
 pnpm tauri build         # release executable in src-tauri/target/release
 pnpm portable            # release build + the portable folder in portable/ (see scripts/portable.mjs)
@@ -31,6 +31,8 @@ pnpm vitest run -t "name of the test"
 pnpm playwright test tests/e2e/recording.spec.ts --project=desktop   # or --project=mobile
 pnpm playwright test -g "title of the test"
 ```
+
+`pnpm exec vite preview` serves the built web app (the real one, not the demo) on port 4173. `node scripts/icons.mjs` redraws the PWA icons in `public/icons` from `public/favicon.svg`.
 
 `node scripts/screenshots.mjs` (dev server running) saves every screen in its key states to `test-results/screens/` for visual review after UI changes.
 
@@ -54,7 +56,7 @@ Layers, with imports pointing downward only:
 
 - `src/core`: pure TypeScript with no DOM, React or Tauri imports, and relative imports only. Everything unit-tested lives here. Session model, the STT provider contract, the recording state machine, audio math (resampling, VAD, PCM), formatting.
 - `src/audio`: browser microphone capture through an AudioWorklet, resampled to 16 kHz mono Float32 (`CAPTURE_SAMPLE_RATE`). Every engine is fed this format.
-- `src/platform/tauri`: the only place that imports `@tauri-apps/api`. `src/platform/web` holds the browser counterparts (IndexedDB History).
+- `src/platform/tauri`: the only place that imports `@tauri-apps/api`. `src/platform/web` holds the browser counterparts (IndexedDB History, the cloud transport and key store of the web app, the service worker registration).
 - `src/app`: composition root (`services.ts`), zustand stores, and `recordingController.ts`.
 - `src/ui`: React components. All interface text is in `src/ui/strings/fa.ts`; components never hold literal Persian strings.
 
@@ -104,7 +106,17 @@ Cloud services (`CloudProviderId`: `openrouter`, `google`) are reached through a
 
 ### Real versus demo
 
-`hasNativeEngine()` (`isTauri()`) picks the local provider: real whisper.cpp in the desktop app, a scripted demo (`demo-local`) in the browser. The cloud speech engines, the AI step and the key store are real in the desktop app (`cloud` in `services.ts` is non-null there). In the browser `cloud` is null until the PWA gets its own key storage, so the cloud engines there are scripted demos (`demo-cloud`, `demo-failing`) and so is the AI step. History is real on both, but the browser build seeds it once with sample sessions (`SEEDS_DEMO_HISTORY`). Provider ids starting with `demo-` make the UI show a demo badge (`isDemoProvider`). Playwright runs against the browser build, so e2e tests exercise the demo engine with a real capture pipeline.
+`services.ts` distinguishes three builds:
+
+- the desktop app (`hasNativeEngine()`, that is `isTauri()`): real whisper.cpp, keys in the Credential Manager, cloud engines and AI step through the native side;
+- the web app (a production build outside Tauri): no local engine (`HAS_LOCAL_ENGINE` is false, and the interface leaves out its advice to fall back on one), the cloud engines and the AI step straight from the browser. `src/platform/web/cloud.ts` sends the requests with `fetch` to the same fixed addresses and keeps each key in IndexedDB, encrypted with a non-extractable WebCrypto key. That keeps a usable key out of storage and backups, not out of reach of code running in the page, which is why the CSP in `public/_headers` matters. Gemini is the fallback engine there;
+- the demo (the development server, or `VITE_DEMO=1`): scripted engines (`demo-local`, `demo-cloud`, `demo-failing`) and a scripted AI step, `cloud` is null, and History is seeded once with sample sessions (`SEEDS_DEMO_HISTORY`). `VITE_DEMO=0 pnpm dev` runs the real web app in development.
+
+Provider ids starting with `demo-` make the UI show a demo badge (`isDemoProvider`). Playwright runs against the development server, so e2e tests exercise the demo engine with a real capture pipeline.
+
+### Web app (PWA)
+
+`public/manifest.webmanifest`, the icons and the Apple meta tags in `index.html` make the site installable. `public/sw.js` (registered by `src/platform/web/serviceWorker.ts`, production web builds only) stores the site's own files so the installed app starts offline; it never touches requests to other origins. `public/_headers` carries the response headers for the host (Netlify reads it from the published folder), the CSP among them: `connect-src` lists the two cloud services and must grow with any new one. `netlify.toml` only says how to build.
 
 ### Settings and secrets
 

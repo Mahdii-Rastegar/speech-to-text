@@ -15,7 +15,7 @@ import {
 import { RadioGroup } from 'radix-ui'
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
 import { previewError, resolveModel } from '@/app/recordingController'
-import { cloud, FALLBACK_PROVIDER_ID, localModels, providers } from '@/app/services'
+import { cloud, FALLBACK_PROVIDER_ID, IS_DESKTOP, localModels, providers } from '@/app/services'
 import { removeKey, saveKey, testKey, useKeys } from '@/app/stores/keysStore'
 import { useRecording } from '@/app/stores/recordingStore'
 import { useModels } from '@/app/stores/modelsStore'
@@ -154,7 +154,7 @@ function EngineSection() {
             {provider.models.map((entry) => (
               <RadioGroup.Item key={entry.id} value={entry.id} className={RADIO_ROW}>
                 <span className="grid size-4 shrink-0 place-items-center rounded-full border border-line-strong group-data-[state=checked]:border-live">
-                  <RadioGroup.Indicator className="size-2 rounded-full bg-live" />
+                  <RadioGroup.Indicator className="size-2 animate-pop-in rounded-full bg-live" />
                 </span>
                 <bdi className="min-w-0 flex-1 truncate font-mono text-sm text-ink">{entry.id}</bdi>
               </RadioGroup.Item>
@@ -181,7 +181,7 @@ function MicrophoneRow({ value, title, hint }: { value: string; title: string; h
   return (
     <RadioGroup.Item value={value} className={RADIO_ROW}>
       <span className="grid size-4 shrink-0 place-items-center rounded-full border border-line-strong group-data-[state=checked]:border-live">
-        <RadioGroup.Indicator className="size-2 rounded-full bg-live" />
+        <RadioGroup.Indicator className="size-2 animate-pop-in rounded-full bg-live" />
       </span>
       <span className="min-w-0 flex-1">
         <bdi className="block truncate text-sm text-ink">{title}</bdi>
@@ -337,7 +337,7 @@ function AiServiceFields() {
         {CLOUD_PROVIDERS.map((provider) => (
           <RadioGroup.Item key={provider} value={provider} className={RADIO_ROW}>
             <span className="grid size-4 shrink-0 place-items-center rounded-full border border-line-strong group-data-[state=checked]:border-live">
-              <RadioGroup.Indicator className="size-2 rounded-full bg-live" />
+              <RadioGroup.Indicator className="size-2 animate-pop-in rounded-full bg-live" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm text-ink">{fa.cloudProviders[provider].name}</span>
@@ -563,7 +563,11 @@ function KeySection() {
         ))}
       </div>
       <p className="mt-3 text-xs leading-5 text-ink-3">
-        {cloud ? fa.settings.keyHint : fa.settings.keyHintDemo}
+        {!cloud
+          ? fa.settings.keyHintDemo
+          : IS_DESKTOP
+            ? fa.settings.keyHint
+            : fa.settings.keyHintWeb}
       </p>
     </Section>
   )
@@ -647,7 +651,7 @@ export function SettingsView() {
     <>
       <PageHeader title={fa.settings.title} />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto grid w-full max-w-[46rem] gap-4 px-4 pt-2 pb-10 sm:px-8">
+        <div className="stagger mx-auto grid w-full max-w-[46rem] gap-4 px-4 pt-2 pb-10 sm:px-8">
           <EngineSection />
           {localModels && (
             <Section icon={HardDriveDownload} title={fa.settings.modelsSection}>

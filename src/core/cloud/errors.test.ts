@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { errorFromResponse } from './errors'
+import { isPlainPath } from './transport'
 
 const kind = (status: number, body: string) => errorFromResponse({ status, body }).kind
 const json = (message: string, status?: string) => JSON.stringify({ error: { message, status } })
@@ -38,5 +39,35 @@ describe('errorFromResponse', () => {
       'HTTP 429: Slow down',
     )
     expect(errorFromResponse({ status: 502, body: '<html>' }).detail).toBe('HTTP 502')
+  })
+})
+
+describe('isPlainPath', () => {
+  it('accepts the paths the services are asked for', () => {
+    for (const path of [
+      '/chat/completions',
+      '/audio/transcriptions',
+      '/models/gemini-flash-latest:generateContent',
+      '/key',
+    ]) {
+      expect(isPlainPath(path), path).toBe(true)
+    }
+  })
+
+  it('refuses anything that could send the key elsewhere', () => {
+    for (const path of [
+      'key',
+      '',
+      '/../x',
+      '//evil.example/x',
+      '/a?key=1',
+      '/a#b',
+      '/a@b',
+      '/a b',
+      '/a\\b',
+      '/a%2e',
+    ]) {
+      expect(isPlainPath(path), path).toBe(false)
+    }
   })
 })

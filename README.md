@@ -2,7 +2,7 @@
 
 Offline-first speech-to-text for Persian and English: live transcription, local Whisper, optional cloud engines and AI clean-up. Windows desktop (Tauri) and iPhone (PWA) from one codebase.
 
-**Status: work in progress.** In the desktop app, speech is transcribed offline by a local Whisper engine (whisper.cpp, `large-v3-turbo`), sentence by sentence while the recording goes on; models are downloaded, checked and removed from inside the app. With the user's own key the desktop app can also transcribe through OpenRouter or Google's Gemini API, and clean up, summarize and title a transcript with a chat model; keys are kept in the Windows Credential Manager. In the browser the text and the AI step still come from scripted demos. Audio is never stored. It leaves the device only when a cloud engine is chosen, and the transcript text only when the AI step is switched on.
+**Status: work in progress.** In the desktop app, speech is transcribed offline by a local Whisper engine (whisper.cpp, `large-v3-turbo`), sentence by sentence while the recording goes on; models are downloaded, checked and removed from inside the app. With the user's own key the desktop app can also transcribe through OpenRouter or Google's Gemini API, and clean up, summarize and title a transcript with a chat model; keys are kept in the Windows Credential Manager. The web app (installable on the iPhone as a PWA) has no local engine: it uses the same two cloud services straight from the browser, with the key kept encrypted in the browser's storage. The development server shows a scripted demo. Audio is never stored. It leaves the device only when a cloud engine is chosen, and the transcript text only when the AI step is switched on.
 
 ## Development
 
@@ -18,6 +18,12 @@ pnpm test:e2e     # end-to-end tests in the installed Microsoft Edge, with a gen
                   # sound file as the microphone
 pnpm build
 ```
+
+`pnpm dev` shows the demo: scripted engines, no keys. `VITE_DEMO=0 pnpm dev` runs the real web app instead.
+
+### Web app (PWA)
+
+`pnpm build` writes the web app to `dist/`. It is a static site: host that folder on any HTTPS address (the microphone needs HTTPS), for example by connecting the repository to Netlify (`netlify.toml` holds the build settings) or by uploading `dist/` there by hand. `public/_headers` sets the response headers, including a Content-Security-Policy that lets the page talk only to itself, OpenRouter and Google's Gemini API. On the iPhone, open the address in Safari and choose Share, then Add to Home Screen.
 
 ### Desktop app (Windows)
 
@@ -55,7 +61,8 @@ src/core      Pure TypeScript shared by desktop and PWA: session model, STT prov
 src/app       Composition root, stores, recording controller
 src/audio     Microphone capture (16 kHz mono) and the input level meter
 src/ui        React components, design tokens, interface strings (Persian, RTL)
-src/platform  What only one platform has: the desktop app's local engine
+src/platform  What only one platform has: the desktop app's local engine and key
+              store, the web app's key store and cloud requests
 src-tauri     Windows desktop shell (Tauri 2, Rust); runs whisper.cpp's server as a
               child process on 127.0.0.1 and keeps the model loaded
 tests/e2e     Playwright tests
