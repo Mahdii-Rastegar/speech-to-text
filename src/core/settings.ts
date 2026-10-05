@@ -25,7 +25,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   sttProviderId: 'demo-local',
   sttModel: 'large-v3-turbo',
-  language: 'auto',
+  language: 'fa',
   microphoneId: '',
   glossary: '',
   aiEnabled: false,
