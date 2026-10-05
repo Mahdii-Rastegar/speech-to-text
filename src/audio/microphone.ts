@@ -15,7 +15,18 @@ export interface MicrophoneCapture {
 }
 
 export type OpenMicrophoneResult =
-  { ok: true; capture: MicrophoneCapture } | { ok: false; error: AppError }
+  | {
+      ok: true
+      capture: MicrophoneCapture
+      /** The requested microphone is gone, so the system default was opened instead. */
+      usedDefault: boolean
+    }
+  | { ok: false; error: AppError }
+
+/** The requested device does not exist (any more), as opposed to being refused or busy. */
+const isMissingDevice = (cause: unknown) =>
+  cause instanceof Error &&
+  (cause.name === 'OverconstrainedError' || cause.name === 'NotFoundError')
 
 function toAppError(cause: unknown): AppError {
   const name = cause instanceof DOMException || cause instanceof Error ? cause.name : ''
@@ -39,8 +50,11 @@ function toAppError(cause: unknown): AppError {
  * Asks for the microphone and starts capturing. Call it straight from a click
  * or tap: browsers only allow audio to start from a user action. Audio stays
  * in memory on this device; nothing here stores or sends it.
+ *
+ * `deviceId` picks a microphone; without it the system default is used. A chosen
+ * microphone that has been unplugged falls back to the default.
  */
-export async function openMicrophone(): Promise<OpenMicrophoneResult> {
+export async function openMicrophone(deviceId = ''): Promise<OpenMicrophoneResult> {
   if (!navigator.mediaDevices?.getUserMedia || typeof AudioContext === 'undefined') {
     // Browsers hide the microphone API on pages that are not served securely.
     return {
@@ -55,10 +69,12 @@ export async function openMicrophone(): Promise<OpenMicrophoneResult> {
   // Created before the first await, while the click still counts as a user action.
   const context = new AudioContext({ latencyHint: 'interactive' })
   let stream: MediaStream | undefined
+  let usedDefault = false
 
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
+  const request = (id: string) =>
+    navigator.mediaDevices.getUserMedia({
       audio: {
+        ...(id ? { deviceId: { exact: id } } : {}),
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true,
@@ -66,6 +82,15 @@ export async function openMicrophone(): Promise<OpenMicrophoneResult> {
       },
       video: false,
     })
+
+  try {
+    try {
+      stream = await request(deviceId)
+    } catch (cause) {
+      if (!deviceId || !isMissingDevice(cause)) throw cause
+      stream = await request('')
+      usedDefault = true
+    }
     await context.audioWorklet.addModule(captureWorkletUrl)
     await context.resume()
   } catch (cause) {
@@ -125,6 +150,7 @@ export async function openMicrophone(): Promise<OpenMicrophoneResult> {
 
   return {
     ok: true,
+    usedDefault,
     capture: {
       onAudio(listener) {
         audioListeners.add(listener)

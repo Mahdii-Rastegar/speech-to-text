@@ -42,7 +42,7 @@ function InputBadge() {
     return (
       <span
         title={fa.recorder.noSignalHint}
-        className="inline-flex h-6 items-center gap-1.5 rounded-full border border-rec/40 px-2 text-xs text-rec"
+        className="inline-flex h-6 shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border border-rec/40 px-2 text-xs text-rec"
       >
         <MicOff aria-hidden="true" className="size-3.5" />
         {fa.recorder.noSignal}
@@ -53,7 +53,7 @@ function InputBadge() {
   return (
     <span
       className={cn(
-        'inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-xs transition-colors duration-150',
+        'inline-flex h-6 shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border px-2 text-xs transition-colors duration-150',
         speaking ? 'border-live/45 bg-live/10 text-live' : 'border-line-strong text-ink-3',
       )}
     >
@@ -78,7 +78,7 @@ function RecorderStatus({
         <Timer ms={elapsedMs} />
         {phase === 'recording' ? (
           <>
-            <span className="inline-flex items-center gap-2 text-sm text-rec">
+            <span className="inline-flex shrink-0 whitespace-nowrap items-center gap-2 text-sm text-rec">
               <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-rec" />
               {fa.recorder.recording}
             </span>

@@ -4,18 +4,26 @@ import {
   EyeOff,
   FlaskConical,
   KeyRound,
+  Mic,
   ShieldCheck,
   Sparkles,
   Trash2,
   type LucideIcon,
 } from 'lucide-react'
-import { useId, useState, type FormEvent, type ReactNode } from 'react'
+import { RadioGroup } from 'radix-ui'
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
 import { previewError } from '@/app/recordingController'
 import { FALLBACK_PROVIDER_ID, providers } from '@/app/services'
 import { useRecording } from '@/app/stores/recordingStore'
 import { clearSessions, useSessions } from '@/app/stores/sessionsStore'
 import { updateSettings, useSettings } from '@/app/stores/settingsStore'
 import { notify } from '@/app/stores/uiStore'
+import {
+  listMicrophones,
+  onMicrophonesChanged,
+  requestMicrophoneAccess,
+  type MicrophoneInfo,
+} from '@/audio/devices'
 import type { AppErrorKind } from '@/core/errors'
 import { toPersianDigits } from '@/core/format/digits'
 import { isBusy } from '@/core/recording/machine'
@@ -110,6 +118,109 @@ function EngineSection() {
         {fa.status.languageTitle}
       </h4>
       <LanguageRadios labelledBy={languageHeadingId} disabled={busy} className="mt-2 sm:max-w-80" />
+    </Section>
+  )
+}
+
+/** Radio value for "no specific microphone"; the stored setting for it is an empty id. */
+const SYSTEM_MICROPHONE = 'system-default'
+
+const MICROPHONE_ROW =
+  'group flex min-h-12 w-full items-center gap-3 rounded-[0.625rem] px-2.5 py-2 text-start transition-colors duration-150 hover:bg-hover disabled:opacity-50 data-[state=checked]:bg-hover'
+
+function MicrophoneRow({ value, title, hint }: { value: string; title: string; hint?: string }) {
+  return (
+    <RadioGroup.Item value={value} className={MICROPHONE_ROW}>
+      <span className="grid size-4 shrink-0 place-items-center rounded-full border border-line-strong group-data-[state=checked]:border-live">
+        <RadioGroup.Indicator className="size-2 rounded-full bg-live" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <bdi className="block truncate text-sm text-ink">{title}</bdi>
+        {hint && <span className="mt-0.5 block text-xs text-ink-3">{hint}</span>}
+      </span>
+    </RadioGroup.Item>
+  )
+}
+
+function MicrophoneSection() {
+  const microphoneId = useSettings((settings) => settings.microphoneId)
+  const busy = useRecording((state) => isBusy(state.phase))
+  const [devices, setDevices] = useState<MicrophoneInfo[]>([])
+  const [refreshes, setRefreshes] = useState(0)
+  const [denied, setDenied] = useState(false)
+  const headingId = useId()
+
+  useEffect(() => {
+    let current = true
+    void listMicrophones().then((list) => {
+      if (current) setDevices(list)
+    })
+    return () => {
+      current = false
+    }
+  }, [refreshes])
+
+  useEffect(() => onMicrophonesChanged(() => setRefreshes((count) => count + 1)), [])
+
+  // Without the permission the system reports devices but hides what they are called.
+  const named = devices.some((device) => device.label.length > 0)
+  const chosen = devices.some((device) => device.deviceId === microphoneId)
+
+  const showList = async () => {
+    setDenied(!(await requestMicrophoneAccess()))
+    setRefreshes((count) => count + 1)
+  }
+
+  return (
+    <Section icon={Mic} title={fa.settings.microphoneSection}>
+      {busy && <p className="mb-2 text-xs text-rec">{fa.status.lockedWhileRecording}</p>}
+      <span id={headingId} className="sr-only">
+        {fa.settings.microphoneSection}
+      </span>
+      <RadioGroup.Root
+        dir="rtl"
+        value={chosen ? microphoneId : SYSTEM_MICROPHONE}
+        onValueChange={(value) =>
+          updateSettings({ microphoneId: value === SYSTEM_MICROPHONE ? '' : value })
+        }
+        disabled={busy}
+        aria-labelledby={headingId}
+        className="-mx-2.5 grid gap-1"
+      >
+        <MicrophoneRow
+          value={SYSTEM_MICROPHONE}
+          title={fa.settings.microphoneDefault}
+          hint={fa.settings.microphoneDefaultHint}
+        />
+        {named &&
+          devices.map((device, index) => (
+            <MicrophoneRow
+              key={device.deviceId}
+              value={device.deviceId}
+              title={
+                device.label ||
+                fa.settings.microphoneUnnamed.replace('{number}', toPersianDigits(index + 1))
+              }
+            />
+          ))}
+      </RadioGroup.Root>
+      {named ? (
+        <p className="mt-2 text-xs leading-5 text-ink-3">{fa.settings.microphoneHint}</p>
+      ) : (
+        <>
+          <p className="mt-2 text-xs leading-5 text-ink-3">
+            {denied ? fa.settings.microphoneAccessDenied : fa.settings.microphoneNeedsAccess}
+          </p>
+          <button
+            type="button"
+            onClick={() => void showList()}
+            disabled={busy}
+            className="btn btn-secondary mt-3"
+          >
+            {fa.settings.microphoneShowList}
+          </button>
+        </>
+      )}
     </Section>
   )
 }
@@ -296,6 +407,7 @@ export function SettingsView() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto grid w-full max-w-[46rem] gap-4 px-4 pt-2 pb-10 sm:px-8">
           <EngineSection />
+          <MicrophoneSection />
           <AiSection />
           <KeySection />
           <DataSection />

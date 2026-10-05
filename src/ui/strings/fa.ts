@@ -31,6 +31,8 @@ const notices: Record<NoticeKind, string> = {
   'session-deleted': 'جلسه حذف شد',
   'history-cleared': 'تاریخچه پاک شد',
   'key-not-saved': 'در نسخه‌ی نمایشی کلید ذخیره نمی‌شود',
+  'mic-no-signal': 'از این میکروفون صدایی نمی‌رسد. در تنظیمات میکروفون دیگری انتخاب کنید.',
+  'mic-fell-back': 'میکروفون انتخاب‌شده پیدا نشد؛ ضبط با میکروفون پیش‌فرض سیستم شروع شد.',
 }
 
 const errors: Record<AppErrorKind, { title: string; body: string }> = {
@@ -107,7 +109,8 @@ export const fa = {
     speech: 'صحبت',
     silence: 'سکوت',
     noSignal: 'صدایی نمی‌رسد',
-    noSignalHint: 'از میکروفون هیچ صدایی نمی‌آید. بی‌صدا نبودن آن را بررسی کنید.',
+    noSignalHint:
+      'از میکروفون هیچ صدایی نمی‌آید. بی‌صدا نبودن آن را بررسی کنید یا در تنظیمات میکروفون دیگری انتخاب کنید.',
     upload: 'آپلود فایل صوتی',
   },
   ai: {
@@ -186,6 +189,15 @@ export const fa = {
   settings: {
     title: 'تنظیمات',
     engineSection: 'موتور و زبان',
+    microphoneSection: 'میکروفون',
+    microphoneDefault: 'پیش‌فرض سیستم',
+    microphoneDefaultHint: 'همان ورودی‌ای که در تنظیمات صدای سیستم انتخاب شده است.',
+    microphoneHint: 'اگر هنگام ضبط «صدایی نمی‌رسد» می‌بینید، میکروفون دیگری را امتحان کنید.',
+    microphoneUnnamed: 'میکروفون {number}',
+    microphoneShowList: 'نمایش فهرست میکروفون‌ها',
+    microphoneNeedsAccess:
+      'برای دیدن نام میکروفون‌ها، برنامه یک بار اجازه‌ی دسترسی به میکروفون می‌خواهد. چیزی ضبط نمی‌شود.',
+    microphoneAccessDenied: 'اجازه‌ی میکروفون داده نشد، برای همین فهرست قابل نمایش نیست.',
     aiSection: 'پردازش با AI',
     aiMasterHint:
       'بعد از پایان هر ضبط، متن خودکار پردازش می‌شود. متن خام همیشه دست‌نخورده می‌ماند.',

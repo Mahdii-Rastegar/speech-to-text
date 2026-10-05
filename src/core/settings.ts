@@ -5,6 +5,8 @@ export interface Settings {
   sttProviderId: string
   sttModel: string
   language: LanguageSetting
+  /** Id of the microphone to record from. Empty means whatever the system has as its default. */
+  microphoneId: string
   /** Master switch for the AI step that runs after transcription. */
   aiEnabled: boolean
   cleanEnabled: boolean
@@ -17,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sttProviderId: 'demo-local',
   sttModel: 'large-v3-turbo',
   language: 'auto',
+  microphoneId: '',
   aiEnabled: false,
   cleanEnabled: true,
   summaryEnabled: false,
@@ -45,6 +48,7 @@ export function parseSettings(raw: unknown): Settings {
     sttProviderId: stringOr(value.sttProviderId, DEFAULT_SETTINGS.sttProviderId),
     sttModel: stringOr(value.sttModel, DEFAULT_SETTINGS.sttModel),
     language: isLanguage(value.language) ? value.language : DEFAULT_SETTINGS.language,
+    microphoneId: typeof value.microphoneId === 'string' ? value.microphoneId : '',
     aiEnabled: booleanOr(value.aiEnabled, DEFAULT_SETTINGS.aiEnabled),
     cleanEnabled: booleanOr(value.cleanEnabled, DEFAULT_SETTINGS.cleanEnabled),
     summaryEnabled: booleanOr(value.summaryEnabled, DEFAULT_SETTINGS.summaryEnabled),

@@ -36,6 +36,7 @@ describe('parseSettings', () => {
     const parsed = parseSettings({
       sttProviderId: 'demo-cloud',
       language: 'klingon',
+      microphoneId: 'mic-1',
       aiEnabled: true,
       summaryEnabled: 'yes',
       unknownField: 1,
@@ -43,8 +44,10 @@ describe('parseSettings', () => {
     expect(parsed).toEqual({
       ...DEFAULT_SETTINGS,
       sttProviderId: 'demo-cloud',
+      microphoneId: 'mic-1',
       aiEnabled: true,
     })
+    expect(parseSettings({ microphoneId: 7 }).microphoneId).toBe('')
   })
 })
 

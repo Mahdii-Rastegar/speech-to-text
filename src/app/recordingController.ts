@@ -91,6 +91,7 @@ function createInputMonitor(): (samples: Float32Array) => void {
 
     const next = { speaking: vad.speaking, noSignal: quietMs >= NO_SIGNAL_AFTER_MS }
     const current = inputStore.getState()
+    if (next.noSignal && !current.noSignal) notify('mic-no-signal')
     if (current.speaking !== next.speaking || current.noSignal !== next.noSignal) {
       inputStore.setState(next, true)
     }
@@ -136,7 +137,7 @@ async function beginRecording(): Promise<void> {
     return
   }
 
-  const opened = await openMicrophone()
+  const opened = await openMicrophone(settings.microphoneId)
   if (recordingStore.getState().phase !== 'starting') {
     // The request was dropped while the permission prompt was open.
     if (opened.ok) opened.capture.stop()
@@ -178,7 +179,7 @@ async function beginRecording(): Promise<void> {
     createdAt: new Date().toISOString(),
   }
   dispatchRecording({ type: 'STARTED', at: Date.now() })
-  notify('recording-started')
+  notify(opened.usedDefault ? 'mic-fell-back' : 'recording-started')
 }
 
 export async function stopRecording(): Promise<void> {

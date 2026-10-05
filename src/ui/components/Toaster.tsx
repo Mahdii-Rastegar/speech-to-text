@@ -11,6 +11,8 @@ const VISIBLE: readonly NoticeKind[] = [
   'session-deleted',
   'history-cleared',
   'key-not-saved',
+  'mic-no-signal',
+  'mic-fell-back',
 ]
 
 const VISIBLE_MS = 3200

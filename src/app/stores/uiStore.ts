@@ -15,6 +15,8 @@ export type NoticeKind =
   | 'session-deleted'
   | 'history-cleared'
   | 'key-not-saved'
+  | 'mic-no-signal'
+  | 'mic-fell-back'
 
 /** Screens switch by state, never by URL. */
 export type View = 'main' | 'history' | 'settings'
