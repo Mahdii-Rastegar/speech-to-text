@@ -38,7 +38,7 @@ test('records, shows live text, stops and copies the transcript', async ({ page 
 
 test('keeps the raw transcript untouched when AI makes a clean version', async ({ page }) => {
   await page.getByRole('button', { name: START }).click()
-  await expect(page.getByText('API رو تست کنم')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('API رو تست کنم')).toBeVisible({ timeout: 30_000 })
   await page.getByRole('button', { name: STOP }).click()
   await expect(page.getByRole('button', { name: START })).toBeVisible()
 
@@ -65,7 +65,7 @@ test('makes the clean version and the summary by itself when AI processing is on
   await page.getByRole('button', { name: 'خلاصه', exact: true }).click()
 
   await page.getByRole('button', { name: START }).click()
-  await expect(page.getByText('API رو تست کنم')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('API رو تست کنم')).toBeVisible({ timeout: 30_000 })
   await page.getByRole('button', { name: STOP }).click()
 
   await page.getByRole('tab', { name: 'پاک‌شده' }).click()

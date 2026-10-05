@@ -2,7 +2,11 @@
 
 Offline-first speech-to-text for Persian and English: live transcription, local Whisper, optional cloud engines and AI clean-up. Windows desktop (Tauri) and iPhone (PWA) from one codebase.
 
-**Status: work in progress.** In the desktop app, speech is transcribed offline by a local Whisper engine (whisper.cpp, `large-v3-turbo`), sentence by sentence while the recording goes on; models are downloaded, checked and removed from inside the app. With the user's own key the desktop app can also transcribe through OpenRouter or Google's Gemini API, and clean up, summarize and title a transcript with a chat model; keys are kept in the Windows Credential Manager. The web app (installable on the iPhone as a PWA) has no local engine: it uses the same two cloud services straight from the browser, with the key kept encrypted in the browser's storage. The development server shows a scripted demo. Audio is never stored. It leaves the device only when a cloud engine is chosen, and the transcript text only when the AI step is switched on.
+**Status: feature-complete, in final testing.** In the desktop app, speech is transcribed offline by a local Whisper engine (whisper.cpp, `large-v3-turbo`), sentence by sentence while the recording goes on; models are downloaded, checked and removed from inside the app. With the user's own key the desktop app can also transcribe through OpenRouter or Google's Gemini API, and clean up, summarize and title a transcript with a chat model; keys are kept in the Windows Credential Manager. The web app (installable on the iPhone as a PWA) has no local engine: it uses the same two cloud services straight from the browser, with the key kept encrypted in the browser's storage. The development server shows a scripted demo.
+
+Audio is never stored. It leaves the device only when a cloud engine is chosen, and the transcript text only when the AI step is switched on. There is no account and no telemetry. [SECURITY.md](SECURITY.md) says where everything is kept and what the app does not protect against; [docs/performance.md](docs/performance.md) has the measured speed, accuracy and sizes.
+
+On the development laptop's small NVIDIA card the local engine transcribes about nine times faster than speech and a sentence comes back in a second or two; without a graphics card it is slower than speech, and a cloud engine is the better choice for live text.
 
 ## Development
 
@@ -16,8 +20,11 @@ pnpm lint
 pnpm test         # unit tests (Vitest)
 pnpm test:e2e     # end-to-end tests in the installed Microsoft Edge, with a generated
                   # sound file as the microphone
+pnpm test:native  # unit tests of the Rust side (needs the desktop toolchain, see below)
 pnpm build
 ```
+
+The end-to-end tests run against the demo, except the `web-app` project, which builds the real web app and plays the cloud service itself.
 
 `pnpm dev` shows the demo: scripted engines, no keys. `VITE_DEMO=0 pnpm dev` runs the real web app instead.
 
@@ -32,7 +39,7 @@ pnpm tauri dev    # the app in a native window, with hot reload
 pnpm tauri build  # optimised executable in src-tauri/target/release
 ```
 
-This needs Rust (stable, `x86_64-pc-windows-msvc`), the MSVC C++ build tools with a Windows SDK, and the WebView2 runtime (part of Windows 11 and current Windows 10). If the build tools are not installed system-wide, `scripts/tauri.mjs` can use a self-contained toolchain folder; the comment at the top of that file explains how.
+This needs Rust (stable, `x86_64-pc-windows-msvc`), the MSVC C++ build tools with a Windows SDK, and the WebView2 runtime (part of Windows 11 and current Windows 10). If the build tools are not installed system-wide, the build scripts can use a self-contained toolchain folder; the comment at the top of `scripts/toolchain.mjs` explains how.
 
 The local engine is not part of the repository. Development builds look for it in the project folder:
 
@@ -69,3 +76,7 @@ tests/e2e     Playwright tests
 ```
 
 The product name lives in `src/app/config.ts`.
+
+## License
+
+[MIT](LICENSE). The app runs [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and OpenAI's Whisper models (both MIT) and embeds the Vazirmatn and JetBrains Mono fonts (SIL Open Font License 1.1). Neither the engine nor the models are in this repository; the notices that go out with the portable folder are in `scripts/portable/licenses/`.

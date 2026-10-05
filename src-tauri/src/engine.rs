@@ -423,12 +423,20 @@ fn split_payload(payload: &[u8]) -> Result<(RequestHeader, &[u8]), EngineError> 
         return Err(EngineError::bad_request("header length exceeds the payload"));
     }
     let (header, pcm) = rest.split_at(length);
-    let header = serde_json::from_slice(header)
+    let header: RequestHeader = serde_json::from_slice(header)
         .map_err(|error| EngineError::bad_request(format!("unreadable header: {error}")))?;
     if pcm.len() % 2 != 0 {
         return Err(EngineError::bad_request("audio is not 16-bit"));
     }
+    if !is_language_code(&header.language) {
+        return Err(EngineError::bad_request("not a language code"));
+    }
     Ok((header, pcm))
+}
+
+/// `fa`, `en`, `auto`: the header's text goes into the request to the engine as it is.
+fn is_language_code(language: &str) -> bool {
+    (2..=8).contains(&language.len()) && language.bytes().all(|byte| byte.is_ascii_lowercase())
 }
 
 // --------------------------------------------------------------------------
@@ -461,9 +469,10 @@ impl Engine {
         // Plain text only. Asking the server for timed segments ("verbose_json") makes it
         // go over the audio a second time, which doubles the wait for nothing the app shows.
         let mut fields = vec![("response_format", "json"), ("language", header.language.as_str())];
-        let prompt = header.prompt.trim();
+        // On one line, so nothing in the glossary can pass for a part of the request.
+        let prompt = one_line(&header.prompt);
         if !prompt.is_empty() {
-            fields.push(("prompt", prompt));
+            fields.push(("prompt", prompt.as_str()));
         }
         let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |since| since.as_nanos());
         let boundary = format!("----stt-app-{nanos:x}");
@@ -611,6 +620,21 @@ mod tests {
         let mut odd = 2u32.to_le_bytes().to_vec();
         odd.extend_from_slice(b"{}");
         assert!(split_payload(&odd).is_err(), "a header without a model is refused");
+    }
+
+    #[test]
+    fn refuses_a_language_that_is_not_a_code() {
+        let payload = |language: &str| {
+            let header = format!(r#"{{"model":"small","language":"{language}"}}"#);
+            let mut payload = (header.len() as u32).to_le_bytes().to_vec();
+            payload.extend_from_slice(header.as_bytes());
+            payload
+        };
+        assert!(split_payload(&payload("auto")).is_ok());
+        for language in ["", "f", "FA", "fa
+--x", "fa en", "abcdefghi"] {
+            assert!(split_payload(&payload(language)).is_err(), "{language:?} should be refused");
+        }
     }
 
     #[test]

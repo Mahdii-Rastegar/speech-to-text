@@ -1,3 +1,5 @@
+Avanevis itself is released under the MIT licence, see Avanevis.txt.
+
 Third-party parts shipped in this folder
 
 engine/whisper-server.exe, whisper.dll, ggml*.dll

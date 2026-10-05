@@ -158,6 +158,8 @@ copyFileSync(join(packaging, 'README.txt'), join(appDir, 'README.txt'))
 for (const notice of readdirSync(join(packaging, 'licenses'))) {
   copy(join(packaging, 'licenses', notice), join(appDir, 'licenses'))
 }
+// The app's own licence travels with it too.
+copyFileSync(join(projectRoot, 'LICENSE'), join(appDir, 'licenses', 'Avanevis.txt'))
 
 if (flags.has('--with-model')) {
   const model = firstExisting(

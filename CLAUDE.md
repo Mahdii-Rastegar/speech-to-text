@@ -17,6 +17,7 @@ pnpm lint                # oxlint
 pnpm format              # prettier --write .
 pnpm test                # Vitest, src/**/*.test.ts, node environment
 pnpm test:e2e            # Playwright in the installed Microsoft Edge
+pnpm test:native         # cargo test for src-tauri, in the toolchain environment
 pnpm build               # tsc -b && vite build; `dist/` is the web app (PWA) as it is hosted
 pnpm tauri dev           # desktop app in a native window, hot reload
 pnpm tauri build         # release executable in src-tauri/target/release
@@ -29,7 +30,9 @@ Single tests:
 pnpm vitest run src/core/recording/machine.test.ts
 pnpm vitest run -t "name of the test"
 pnpm playwright test tests/e2e/recording.spec.ts --project=desktop   # or --project=mobile
+pnpm playwright test --project=web-app                               # the real web app
 pnpm playwright test -g "title of the test"
+pnpm test:native secrets                                             # Rust tests by name
 ```
 
 `pnpm exec vite preview` serves the built web app (the real one, not the demo) on port 4173. `node scripts/icons.mjs` redraws the PWA icons in `public/icons` from `public/favicon.svg`.
@@ -40,9 +43,9 @@ pnpm playwright test -g "title of the test"
 
 ### Native build
 
-Always go through `pnpm tauri ...` (`scripts/tauri.mjs`), never call `cargo` or the Tauri CLI directly: Rust and MSVC may live in a self-contained folder that is not on PATH. The script reads that folder from `STT_TOOLCHAIN_DIR` or the first line of the git-ignored `toolchain.local`, and builds the environment (`CARGO_HOME`, `INCLUDE`, `LIB`, `PATH`) for the child process only. The same goes for `cuda.local` / `STT_CUDA_DLL_DIR` (folder holding `cublas64_11.dll` and `cublasLt64_11.dll`); without them the engine silently runs on the CPU, several times slower.
+Always go through `pnpm tauri ...` (`scripts/tauri.mjs`) or `pnpm test:native`, never call `cargo` or the Tauri CLI directly: Rust and MSVC may live in a self-contained folder that is not on PATH. `scripts/toolchain.mjs` reads that folder from `STT_TOOLCHAIN_DIR` or the first line of the git-ignored `toolchain.local`, and builds the environment (`CARGO_HOME`, `INCLUDE`, `LIB`, `PATH`) for the child process only. The same goes for `cuda.local` / `STT_CUDA_DLL_DIR` (folder holding `cublas64_11.dll` and `cublasLt64_11.dll`); without them the engine silently runs on the CPU, several times slower.
 
-The Rust modules (`engine.rs`, `models.rs`, `history.rs`, `audio.rs`, `cloud.rs`, `secrets.rs`) have unit tests, but there is no package script for them; running `cargo test` needs the same toolchain environment the script sets up.
+The Rust modules (`engine.rs`, `models.rs`, `history.rs`, `audio.rs`, `cloud.rs`, `secrets.rs`) have unit tests, run by `pnpm test:native` (`scripts/native-test.mjs`; extra arguments go to `cargo test`).
 
 Development builds find the engine and model by walking up from the executable: `bench/tools/whisper-cpp/Release/whisper-server.exe` (or `engine/`) and `models/ggml/ggml-large-v3-turbo-q5_0.bin` (or `models/`). Overrides: `STT_ENGINE_DIR`, `STT_MODELS_DIR`. Neither is in the repository. The History database is `data/history.sqlite3` beside the executable, and the web view keeps its own files (the localStorage settings among them) in `data/webview`; development builds use the project's git-ignored `data/` instead (`STT_DATA_DIR` overrides both).
 
@@ -91,6 +94,7 @@ Failures are `AppError` values (`src/core/errors.ts`) with a closed set of kinds
 - `local_engine_transcribe` takes a raw binary body, not JSON: 4-byte little-endian header length, a JSON header (`model`, `language`, `prompt`), then 16-bit PCM. `buildPayload` in TypeScript and `split_payload` in Rust must change together.
 - Rust errors serialize as `{ kind, detail }` with kebab-case kinds; `toFailure` maps them onto `AppErrorKind`.
 - The models are listed in `CATALOG` in `src-tauri/src/models.rs` (id, file name, size, SHA-256) and by id in `MODELS` (TypeScript); their Persian descriptions are in `fa.localModels`. `models.rs` also downloads them: in 4 MB range requests into a `.part` file that a later attempt carries on from, renamed only when the checksum matches. The interface side is `LocalModels` (`src/core/models/localModels.ts`) ↔ `src/platform/tauri/models.ts`, with progress over a Tauri `Channel`, and `modelsStore`. `engineOutlook` turns `system_info` (NVIDIA driver, GPU libraries present) into the advice shown above the list; the first model of the catalog is the recommended one on every computer, because the small model was measured to be poor at Persian. The model in use is chosen in that same list (`selectLocalModel`); the engine section offers a model choice only for cloud engines.
+- `split_payload` refuses a language that is not a short lowercase code, and the glossary is flattened to one line, because both are written into the multipart request to the engine as they are.
 - A missing model is its own error kind (`local-model-missing`), so the message can send the user to the download in Settings; `validateConfiguration(model)` checks the model the recording would use.
 - The CSP in `tauri.conf.json` allows only `self` and Tauri IPC in `connect-src`. It stays that way: cloud requests and model downloads leave from the native side, not from the web view.
 
@@ -112,7 +116,7 @@ Cloud services (`CloudProviderId`: `openrouter`, `google`) are reached through a
 - the web app (a production build outside Tauri): no local engine (`HAS_LOCAL_ENGINE` is false, and the interface leaves out its advice to fall back on one), the cloud engines and the AI step straight from the browser. `src/platform/web/cloud.ts` sends the requests with `fetch` to the same fixed addresses and keeps each key in IndexedDB, encrypted with a non-extractable WebCrypto key. That keeps a usable key out of storage and backups, not out of reach of code running in the page, which is why the CSP in `public/_headers` matters. Gemini is the fallback engine there;
 - the demo (the development server, or `VITE_DEMO=1`): scripted engines (`demo-local`, `demo-cloud`, `demo-failing`) and a scripted AI step, `cloud` is null, and History is seeded once with sample sessions (`SEEDS_DEMO_HISTORY`). `VITE_DEMO=0 pnpm dev` runs the real web app in development.
 
-Provider ids starting with `demo-` make the UI show a demo badge (`isDemoProvider`). Playwright runs against the development server, so e2e tests exercise the demo engine with a real capture pipeline.
+Provider ids starting with `demo-` make the UI show a demo badge (`isDemoProvider`). Playwright runs against the development server, so e2e tests exercise the demo engine with a real capture pipeline. The exception is the `web-app` project (`tests/e2e/webapp.spec.ts`): it builds the web app, serves it with `vite preview` on port 4173 and answers Gemini's requests itself, which covers the browser key store and the cloud engine. The suite runs four browsers at a time (`workers` in `playwright.config.ts`): the fake microphone plays in real time, and tests that listen to it fail on an overloaded machine.
 
 ### Web app (PWA)
 
@@ -131,5 +135,7 @@ Preferences are a single localStorage entry (`stt-app.settings.v1`), read throug
 - Code comments, commit messages and documentation are in English; only interface text is Persian.
 
 ## Repository hygiene
+
+`SECURITY.md` describes where audio, transcripts and keys go and what was checked before publication; `docs/performance.md` holds the measured speed, accuracy and sizes. Both state facts about the code, so a change to key handling, the CSP, the addresses the app talks to or the engine flags needs the matching edit there.
 
 The repository is meant to become public. Models, engine binaries, audio in any format, benchmark samples and results, and `*.local` pointer files are git-ignored and must stay out of commits, along with keys and machine-specific paths.

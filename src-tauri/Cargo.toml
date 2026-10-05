@@ -3,6 +3,7 @@ name = "stt-app"
 version = "0.1.0"
 description = "Offline-first speech-to-text for Persian and English"
 edition = "2021"
+license = "MIT"
 publish = false
 
 [lib]
