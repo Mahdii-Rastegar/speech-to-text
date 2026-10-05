@@ -8,6 +8,7 @@ import {
   KeyRound,
   Mic,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Trash2,
   type LucideIcon,
@@ -16,6 +17,7 @@ import { RadioGroup } from 'radix-ui'
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
 import { previewError, resolveModel } from '@/app/recordingController'
 import { cloud, FALLBACK_PROVIDER_ID, IS_DESKTOP, localModels, providers } from '@/app/services'
+import { useInstall } from '@/app/stores/installStore'
 import { removeKey, saveKey, testKey, useKeys } from '@/app/stores/keysStore'
 import { useRecording } from '@/app/stores/recordingStore'
 import { useModels } from '@/app/stores/modelsStore'
@@ -573,6 +575,22 @@ function KeySection() {
   )
 }
 
+/** Only in a phone's browser: the way back to the install guide after it was closed. */
+function InstallSection() {
+  return (
+    <Section icon={Smartphone} title={fa.settings.installSection}>
+      <p className="text-sm leading-6 text-ink-2">{fa.settings.installNote}</p>
+      <button
+        type="button"
+        onClick={() => updateSettings({ installGuideSeen: false })}
+        className="btn btn-secondary mt-3"
+      >
+        {fa.settings.installOpen}
+      </button>
+    </Section>
+  )
+}
+
 function DataSection() {
   const count = useSessions((state) => state.sessions.length)
   const [confirming, setConfirming] = useState(false)
@@ -647,11 +665,13 @@ function DemoSection() {
 }
 
 export function SettingsView() {
+  const installable = useInstall((state) => state.platform !== null)
   return (
     <>
       <PageHeader title={fa.settings.title} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="stagger mx-auto grid w-full max-w-[46rem] gap-4 px-4 pt-2 pb-10 sm:px-8">
+          {installable && <InstallSection />}
           <EngineSection />
           {localModels && (
             <Section icon={HardDriveDownload} title={fa.settings.modelsSection}>

@@ -1,8 +1,10 @@
 import { Direction } from 'radix-ui'
+import { useInstall } from '@/app/stores/installStore'
 import { useSettings } from '@/app/stores/settingsStore'
 import { useUi } from '@/app/stores/uiStore'
 import { HistoryRail, HistorySheet } from '@/ui/components/HistoryRail'
 import { HistoryView } from '@/ui/components/HistoryView'
+import { InstallGuide } from '@/ui/components/InstallGuide'
 import { RecorderDock } from '@/ui/components/RecorderDock'
 import { SettingsView } from '@/ui/components/SettingsView'
 import { Toaster } from '@/ui/components/Toaster'
@@ -18,6 +20,17 @@ import { Welcome } from '@/ui/components/Welcome'
 export function App() {
   const onboarded = useSettings((settings) => settings.onboarded)
   const view = useUi((state) => state.view)
+  const installGuideSeen = useSettings((settings) => settings.installGuideSeen)
+  const installable = useInstall((state) => state.platform !== null)
+
+  // Before anything else: on an iPhone what is set up in the browser does not follow into the installed app.
+  if (installable && !installGuideSeen) {
+    return (
+      <Direction.Provider dir="rtl">
+        <InstallGuide />
+      </Direction.Provider>
+    )
+  }
 
   if (!onboarded) {
     return (

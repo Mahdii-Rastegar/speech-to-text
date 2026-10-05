@@ -6,7 +6,7 @@ import { updateSettings } from '@/app/stores/settingsStore'
 import { useProvider } from '@/ui/hooks/useProvider'
 import { fa } from '@/ui/strings/fa'
 import { LanguageRadios } from './EnginePicker'
-import { VoiceMark } from './Wordmark'
+import { VoiceMarkHero } from './Wordmark'
 
 const POINT_ICONS: readonly LucideIcon[] = HAS_LOCAL_ENGINE
   ? [AudioLines, HardDrive, Sparkles]
@@ -21,10 +21,7 @@ export function Welcome() {
   return (
     <main className="h-full overflow-y-auto">
       <div className="stagger mx-auto flex min-h-full w-full max-w-[34rem] flex-col justify-center px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-8">
-        <VoiceMark
-          drawn
-          className="h-14 w-28 text-live drop-shadow-[0_0_18px_rgb(92_203_242/0.45)]"
-        />
+        <VoiceMarkHero className="h-14 w-28" />
         <p className="mt-7 text-sm text-ink-3">{fa.welcome.lead.replace('{name}', APP_NAME)}</p>
         <h1 className="mt-1 text-[1.625rem] leading-[1.7] font-bold text-ink sm:text-[2rem]">
           <span className="text-gradient-live">{fa.transcript.heroLead}</span>{' '}

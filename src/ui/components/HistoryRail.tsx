@@ -1,10 +1,10 @@
-import { Search, Settings } from 'lucide-react'
+import { Search, Settings, Trash2 } from 'lucide-react'
 import { Dialog } from 'radix-ui'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { selectSession } from '@/app/recordingController'
 import { useRecording } from '@/app/stores/recordingStore'
-import { useSessions } from '@/app/stores/sessionsStore'
-import { openView, uiStore, useUi } from '@/app/stores/uiStore'
+import { removeSession, useSessions } from '@/app/stores/sessionsStore'
+import { notify, openView, uiStore, useUi } from '@/app/stores/uiStore'
 import { formatClock } from '@/core/format/date'
 import { isBusy } from '@/core/recording/machine'
 import type { TranscriptionSession } from '@/core/session'
@@ -12,43 +12,58 @@ import { detectDirection } from '@/core/text/direction'
 import { costLabel, costShortLabel, durationLabel, groupSessionsByDay } from '@/ui/format'
 import { useNow } from '@/ui/hooks/useNow'
 import { fa, providerName } from '@/ui/strings/fa'
+import { ConfirmDialog } from './ConfirmDialog'
 import { Wordmark } from './Wordmark'
 
 function SessionItem({
   session,
   active,
   disabled,
+  onDelete,
 }: {
   session: TranscriptionSession
   active: boolean
   disabled: boolean
+  onDelete: () => void
 }) {
   const heading = session.title ?? session.rawTranscript
   return (
-    <button
-      type="button"
-      onClick={() => selectSession(session.id)}
-      disabled={disabled}
-      aria-current={active ? 'true' : undefined}
-      className="relative block w-full rounded-[0.75rem] px-3 py-2.5 text-start transition-colors duration-150 before:absolute before:inset-y-3 before:start-0 before:w-[3px] before:origin-center before:scale-y-50 before:rounded-full before:bg-live before:opacity-0 before:transition-[opacity,scale] before:duration-200 hover:bg-raised disabled:opacity-50 aria-[current=true]:bg-raised aria-[current=true]:shadow-[inset_0_1px_0_rgb(255_255_255/0.05)] aria-[current=true]:before:scale-y-100 aria-[current=true]:before:opacity-100"
-    >
-      <span dir={detectDirection(heading)} className="block truncate text-[0.9375rem] text-ink">
-        {heading}
-      </span>
-      <span className="mt-1 flex items-center gap-x-2 overflow-hidden text-xs whitespace-nowrap text-ink-3">
-        <span>{formatClock(new Date(session.createdAt))}</span>
-        <span aria-hidden="true">·</span>
-        <bdi>{durationLabel(session.durationMs)}</bdi>
-        <span aria-hidden="true">·</span>
-        <span className="min-w-0 truncate">{providerName(session.provider)}</span>
-        {session.cost && (
-          <>
-            <span aria-hidden="true">·</span>
-            <span title={costLabel(session.cost)}>{costShortLabel(session.cost)}</span>
-          </>
-        )}
-      </span>
-    </button>
+    <div className="group relative">
+      <button
+        type="button"
+        onClick={() => selectSession(session.id)}
+        disabled={disabled}
+        aria-current={active ? 'true' : undefined}
+        className="relative block w-full rounded-[0.75rem] py-2.5 ps-3 pe-11 text-start transition-colors duration-150 before:absolute before:inset-y-3 before:start-0 before:w-[3px] before:origin-center before:scale-y-50 before:rounded-full before:bg-live before:opacity-0 before:transition-[opacity,scale] before:duration-200 hover:bg-raised disabled:opacity-50 aria-[current=true]:bg-raised aria-[current=true]:shadow-[inset_0_1px_0_rgb(255_255_255/0.05)] aria-[current=true]:before:scale-y-100 aria-[current=true]:before:opacity-100"
+      >
+        <span dir={detectDirection(heading)} className="block truncate text-[0.9375rem] text-ink">
+          {heading}
+        </span>
+        <span className="mt-1 flex items-center gap-x-2 overflow-hidden text-xs whitespace-nowrap text-ink-3">
+          <span>{formatClock(new Date(session.createdAt))}</span>
+          <span aria-hidden="true">·</span>
+          <bdi>{durationLabel(session.durationMs)}</bdi>
+          <span aria-hidden="true">·</span>
+          <span className="min-w-0 truncate">{providerName(session.provider)}</span>
+          {session.cost && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span title={costLabel(session.cost)}>{costShortLabel(session.cost)}</span>
+            </>
+          )}
+        </span>
+      </button>
+      {/* A finger has no hover to reveal it with, so on touch screens it is always there. */}
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={fa.history.deleteSession}
+        title={fa.history.deleteSession}
+        className="icon-btn absolute end-0.5 top-1/2 size-10 -translate-y-1/2 text-ink-3 opacity-0 group-hover:opacity-100 hover:text-rec focus-visible:opacity-100 pointer-coarse:opacity-100"
+      >
+        <Trash2 aria-hidden="true" className="size-4" />
+      </button>
+    </div>
   )
 }
 
@@ -61,6 +76,7 @@ export function HistoryRail() {
   const view = useUi((state) => state.view)
   const now = useNow()
   const groups = useMemo(() => groupSessionsByDay(sessions, now), [sessions, now])
+  const [pendingId, setPendingId] = useState<string | null>(null)
 
   return (
     <nav aria-label={fa.history.title} className="flex h-full w-full min-w-0 flex-col">
@@ -91,6 +107,7 @@ export function HistoryRail() {
                         session={session}
                         active={view === 'main' && session.id === activeSessionId}
                         disabled={busy}
+                        onDelete={() => setPendingId(session.id)}
                       />
                     </li>
                   ))}
@@ -110,6 +127,21 @@ export function HistoryRail() {
           {fa.history.settings}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={pendingId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingId(null)
+        }}
+        title={fa.history.confirmDeleteTitle}
+        body={fa.history.confirmDeleteBody}
+        confirmLabel={fa.history.confirmDelete}
+        onConfirm={() => {
+          if (pendingId === null) return
+          removeSession(pendingId)
+          notify('session-deleted')
+        }}
+      />
     </nav>
   )
 }

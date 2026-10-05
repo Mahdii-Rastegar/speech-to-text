@@ -61,6 +61,23 @@ test.describe('history', () => {
     await expect(page.getByText('۴ جلسه')).toBeVisible()
   })
 
+  test('deletes a session from the side list', async ({ page, isMobile }) => {
+    if (isMobile) await page.getByRole('button', { name: 'باز کردن تاریخچه' }).click()
+    const row = page
+      .getByRole('navigation', { name: 'تاریخچه' })
+      .getByRole('listitem')
+      .filter({ hasText: 'کارهای این هفته' })
+
+    await row.getByRole('button', { name: 'حذف جلسه' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'انصراف' }).click()
+    await expect(row).toBeVisible()
+
+    await row.getByRole('button', { name: 'حذف جلسه' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'حذف', exact: true }).click()
+    await expect(row).toBeHidden()
+    await expect(page.getByRole('status').getByText('جلسه حذف شد')).toBeVisible()
+  })
+
   test('clears the whole history', async ({ page, isMobile }) => {
     await openHistory(page, isMobile)
     await page.getByRole('button', { name: 'حذف همه' }).click()

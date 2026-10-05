@@ -122,6 +122,8 @@ Provider ids starting with `demo-` make the UI show a demo badge (`isDemoProvide
 
 `public/manifest.webmanifest`, the icons and the Apple meta tags in `index.html` make the site installable. `public/sw.js` (registered by `src/platform/web/serviceWorker.ts`, production web builds only) stores the site's own files so the installed app starts offline; it never touches requests to other origins. `public/_headers` carries the response headers for the host (Netlify reads it from the published folder), the CSP among them: `connect-src` lists the two cloud services and must grow with any new one. `netlify.toml` only says how to build.
 
+In a phone's browser (not yet opened from the home screen) the app starts with `InstallGuide`, ahead of the welcome: the steps for the iPhone, and on Android the browser's own install dialog when it offers one (`src/platform/web/install.ts`, `installStore`). It can be skipped (`installGuideSeen` in the settings) and reopened from Settings. The platform is read from the user agent, so the e2e projects, which keep the desktop one, never see it; `tests/e2e/install.spec.ts` sets a phone's.
+
 ### Settings and secrets
 
 Preferences are a single localStorage entry (`stt-app.settings.v1`), read through `parseSettings`, which falls back per field so stale or hand-edited data cannot break startup; add new fields there with a default. API keys must never go into this store; `keysStore` holds only whether a key exists.

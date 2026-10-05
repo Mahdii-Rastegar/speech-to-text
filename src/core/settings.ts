@@ -20,6 +20,8 @@ export interface Settings {
   aiModel: string
   /** The welcome screen has been seen and closed. */
   onboarded: boolean
+  /** The guide to putting the web app on the phone's home screen has been seen and closed. */
+  installGuideSeen: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -34,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   aiProviderId: 'openrouter',
   aiModel: '',
   onboarded: false,
+  installGuideSeen: false,
 }
 
 /** Whisper reads only a short hint; the engine cuts off anything longer anyway. */
@@ -76,5 +79,6 @@ export function parseSettings(raw: unknown): Settings {
     aiModel:
       typeof value.aiModel === 'string' ? value.aiModel.trim().slice(0, AI_MODEL_MAX_LENGTH) : '',
     onboarded: booleanOr(value.onboarded, DEFAULT_SETTINGS.onboarded),
+    installGuideSeen: booleanOr(value.installGuideSeen, DEFAULT_SETTINGS.installGuideSeen),
   }
 }

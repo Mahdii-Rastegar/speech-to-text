@@ -53,6 +53,8 @@
   --animate-float-in: float-in 200ms var(--ease-out-quart) both;
   --animate-pop-in: pop-in 260ms var(--ease-spring) both;
   --animate-draw: draw 1200ms var(--ease-out-quart) 120ms both;
+  /* A light that keeps running along a line once it has been drawn. */
+  --animate-spark: spark 2.6s cubic-bezier(0.45, 0, 0.55, 1) 1300ms infinite backwards;
   --animate-breathe: breathe 3.6s ease-in-out infinite;
   --animate-ripple: ripple 720ms var(--ease-out-quart) both;
   --animate-shimmer: shimmer 1.8s linear infinite;
@@ -104,6 +106,16 @@
     }
     to {
       stroke-dashoffset: 0;
+    }
+  }
+  /* For a path with pathLength="1" and a dash of 0.16 followed by a gap longer than the path. */
+  @keyframes spark {
+    from {
+      stroke-dashoffset: 0.16;
+    }
+    70%,
+    to {
+      stroke-dashoffset: -1;
     }
   }
   @keyframes breathe {
