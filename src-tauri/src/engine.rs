@@ -422,7 +422,12 @@ impl Engine {
         };
 
         let audio_seconds = pcm.len() as u64 / (u64::from(SAMPLE_RATE) * 2);
-        let mut fields = vec![("response_format", "verbose_json"), ("language", header.language.as_str())];
+        let mut fields = vec![
+            ("response_format", "verbose_json"),
+            ("language", header.language.as_str()),
+            // Without this the engine starts a new segment in the middle of a word.
+            ("split_on_word", "true"),
+        ];
         let prompt = header.prompt.trim();
         if !prompt.is_empty() {
             fields.push(("prompt", prompt));

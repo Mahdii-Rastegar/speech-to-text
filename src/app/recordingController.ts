@@ -10,7 +10,7 @@ import {
   type TranscriptionSession,
 } from '@/core/session'
 import type { Settings } from '@/core/settings'
-import { createBufferedLiveSession } from '@/core/stt/bufferedLive'
+import { createChunkedLiveSession } from '@/core/stt/chunkedLive'
 import {
   joinSegments,
   type LiveEvent,
@@ -36,6 +36,9 @@ import { notify, uiStore } from './stores/uiStore'
 const NO_SIGNAL_DB = SILENCE_DB + 10
 /** How long the input must stay that quiet before the user is told. */
 const NO_SIGNAL_AFTER_MS = 3000
+
+/** How often a batch engine is asked for the sentence that is still being spoken. */
+const INTERIM_EVERY_MS = 1500
 
 interface ActiveRun {
   capture: MicrophoneCapture
@@ -160,7 +163,10 @@ async function beginRecording(): Promise<void> {
     provider.warmUp?.(model)
     live =
       provider.transcribeStream?.(options) ??
-      createBufferedLiveSession(provider, options, CAPTURE_SAMPLE_RATE)
+      createChunkedLiveSession(provider, options, CAPTURE_SAMPLE_RATE, {
+        // Interim text repeats requests, which is only free on this computer.
+        interimEveryMs: provider.getCapabilities().billing === 'none' ? INTERIM_EVERY_MS : null,
+      })
   } catch (cause) {
     capture.stop()
     dispatchRecording({ type: 'FAILED', error: toAppError(cause), at: Date.now() })

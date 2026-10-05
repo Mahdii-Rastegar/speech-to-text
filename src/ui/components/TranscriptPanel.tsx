@@ -30,7 +30,6 @@ const COLUMN = 'mx-auto w-full max-w-[46rem] px-5 sm:px-8'
 function EmptyState() {
   const provider = useProvider()
   const demo = provider !== undefined && isDemoProvider(provider.id)
-  const live = provider?.getCapabilities().mode !== 'batch'
 
   return (
     <div className={cn(COLUMN, 'flex min-h-full flex-col justify-center py-10')}>
@@ -43,9 +42,7 @@ function EmptyState() {
         {fa.transcript.emptyTitle}
         <VoiceLine mode="idle" direction="rtl" />
       </p>
-      <p className="mt-1 text-[0.9375rem] leading-7 text-ink-3">
-        {live ? fa.transcript.emptyBody : fa.transcript.emptyBodyAfterStop}
-      </p>
+      <p className="mt-1 text-[0.9375rem] leading-7 text-ink-3">{fa.transcript.emptyBody}</p>
       <p className="mt-9 inline-flex w-fit items-center gap-2 rounded-full border border-line bg-backdrop/50 px-3 py-1.5 text-xs leading-5 text-ink-3">
         <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-ai" />
         {demo ? fa.demo.note : fa.demo.localNote}
@@ -66,23 +63,9 @@ function LiveTranscript({ settling }: { settling: boolean }) {
   const segments = useRecording((state) => state.segments)
   const interim = useRecording((state) => state.interim)
   const language = useSettings((settings) => settings.language)
-  const provider = useProvider()
 
   const fallback: TextDirection = language === 'en' ? 'ltr' : 'rtl'
   const direction = detectDirection(`${joinSegments(segments)} ${interim}`, fallback)
-  // An engine that takes the whole recording has nothing to show until it ends.
-  const waiting =
-    provider?.getCapabilities().mode === 'batch' && segments.length === 0 && interim.length === 0
-
-  if (waiting) {
-    return (
-      <p aria-live="polite" className="transcript text-ink-3">
-        {settling ? fa.transcript.writing : fa.transcript.textAfterStop}{' '}
-        <VoiceLine mode={settling ? 'settling' : 'live'} direction="rtl" />
-      </p>
-    )
-  }
-
   return (
     <p
       dir={direction}
