@@ -19,6 +19,15 @@ pnpm test:e2e     # end-to-end tests in the installed Microsoft Edge, with a gen
 pnpm build
 ```
 
+### Desktop app (Windows)
+
+```bash
+pnpm tauri dev    # the app in a native window, with hot reload
+pnpm tauri build  # optimised executable in src-tauri/target/release
+```
+
+This needs Rust (stable, `x86_64-pc-windows-msvc`), the MSVC C++ build tools with a Windows SDK, and the WebView2 runtime (part of Windows 11 and current Windows 10). If the build tools are not installed system-wide, `scripts/tauri.mjs` can use a self-contained toolchain folder; the comment at the top of that file explains how.
+
 `node scripts/screenshots.mjs` (with the dev server running) saves screenshots of the main states to `test-results/screens/`.
 
 ## Layout
@@ -30,6 +39,7 @@ src/core      Pure TypeScript shared by desktop and PWA: session model, STT prov
 src/app       Composition root, stores, recording controller
 src/audio     Microphone capture (16 kHz mono) and the input level meter
 src/ui        React components, design tokens, interface strings (Persian, RTL)
+src-tauri     Windows desktop shell (Tauri 2, Rust)
 tests/e2e     Playwright tests
 ```
 

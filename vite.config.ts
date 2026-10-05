@@ -10,6 +10,15 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  // The desktop shell loads this exact address in development, so the port must not drift.
+  server: {
+    port: 5173,
+    strictPort: true,
+    // The native build writes thousands of files here; watching them only causes lock errors.
+    watch: { ignored: ['**/src-tauri/**'] },
+  },
+  // Keep the native build's messages on screen when both run in one terminal.
+  clearScreen: false,
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node',
