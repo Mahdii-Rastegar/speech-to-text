@@ -53,6 +53,21 @@ export function RecordKey({ phase, onStart, onStop, className }: RecordKeyProps)
         className,
       )}
     >
+      {phase === 'idle' || phase === 'done' || phase === 'error' ? (
+        // Waiting: a slow halo that says the key is alive.
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -inset-1.5 animate-breathe rounded-full border border-live/60"
+        />
+      ) : (
+        recording && (
+          // One ring leaves the key at the moment the recording starts.
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 animate-ripple rounded-full border-2 border-live"
+          />
+        )
+      )}
       <span
         ref={ringRef}
         aria-hidden="true"
@@ -62,9 +77,9 @@ export function RecordKey({ phase, onStart, onStop, className }: RecordKeyProps)
         )}
       />
       {recording || phase === 'finalizing' ? (
-        <span aria-hidden="true" className="size-6 rounded-[0.4375rem] bg-rec" />
+        <span aria-hidden="true" className="size-6 animate-pop-in rounded-[0.4375rem] bg-rec" />
       ) : (
-        <Mic aria-hidden="true" className="size-7" strokeWidth={2} />
+        <Mic aria-hidden="true" className="size-7 animate-pop-in" strokeWidth={2} />
       )}
     </button>
   )

@@ -36,7 +36,7 @@ export function CopyButton({ text }: { text: string }) {
       )}
     >
       {copied ? (
-        <Check aria-hidden="true" className="size-4" strokeWidth={2.5} />
+        <Check aria-hidden="true" className="size-4 animate-pop-in" strokeWidth={2.5} />
       ) : (
         <Copy aria-hidden="true" className="size-4" />
       )}

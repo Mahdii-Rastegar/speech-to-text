@@ -40,7 +40,7 @@ export function EngineRadios({ labelledBy, disabled, className }: PickerProps) {
             className="group flex min-h-12 w-full items-center gap-3 rounded-[0.625rem] px-2.5 py-2 text-start transition-colors duration-150 hover:bg-hover disabled:opacity-50 data-[state=checked]:bg-hover"
           >
             <span className="grid size-4 shrink-0 place-items-center rounded-full border border-line-strong group-data-[state=checked]:border-live">
-              <RadioGroup.Indicator className="size-2 rounded-full bg-live" />
+              <RadioGroup.Indicator className="size-2 animate-pop-in rounded-full bg-live" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm text-ink">{providerName(entry.id)}</span>

@@ -34,15 +34,17 @@ export function App() {
           <HistoryRail />
         </aside>
         <main className="surface-page flex min-h-0 min-w-0 flex-col overflow-hidden lg:rounded-[1.25rem] lg:border lg:border-line">
-          {view === 'main' && (
-            <>
-              <TopBar />
-              <TranscriptPanel />
-              <RecorderDock />
-            </>
-          )}
-          {view === 'history' && <HistoryView />}
-          {view === 'settings' && <SettingsView />}
+          <div key={view} className="flex min-h-0 flex-1 animate-view-in flex-col">
+            {view === 'main' && (
+              <>
+                <TopBar />
+                <TranscriptPanel />
+                <RecorderDock />
+              </>
+            )}
+            {view === 'history' && <HistoryView />}
+            {view === 'settings' && <SettingsView />}
+          </div>
         </main>
       </div>
       <HistorySheet />

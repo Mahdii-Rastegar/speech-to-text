@@ -30,7 +30,7 @@ function SessionItem({
       onClick={() => selectSession(session.id)}
       disabled={disabled}
       aria-current={active ? 'true' : undefined}
-      className="relative block w-full rounded-[0.75rem] px-3 py-2.5 text-start transition-colors duration-150 before:absolute before:inset-y-3 before:start-0 before:w-[3px] before:rounded-full before:bg-live before:opacity-0 hover:bg-raised disabled:opacity-50 aria-[current=true]:bg-raised aria-[current=true]:shadow-[inset_0_1px_0_rgb(255_255_255/0.05)] aria-[current=true]:before:opacity-100"
+      className="relative block w-full rounded-[0.75rem] px-3 py-2.5 text-start transition-colors duration-150 before:absolute before:inset-y-3 before:start-0 before:w-[3px] before:origin-center before:scale-y-50 before:rounded-full before:bg-live before:opacity-0 before:transition-[opacity,scale] before:duration-200 hover:bg-raised disabled:opacity-50 aria-[current=true]:bg-raised aria-[current=true]:shadow-[inset_0_1px_0_rgb(255_255_255/0.05)] aria-[current=true]:before:scale-y-100 aria-[current=true]:before:opacity-100"
     >
       <span dir={detectDirection(heading)} className="block truncate text-[0.9375rem] text-ink">
         {heading}

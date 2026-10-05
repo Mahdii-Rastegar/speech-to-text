@@ -23,7 +23,7 @@ export function ConfirmDialog({
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-50 animate-fade-in bg-backdrop/75" />
-        <AlertDialog.Content className="fixed inset-x-4 top-1/2 z-50 mx-auto max-w-[24rem] -translate-y-1/2 animate-fade-in surface-float rounded-[1.125rem] border border-line-strong p-5">
+        <AlertDialog.Content className="fixed inset-x-4 top-1/2 z-50 mx-auto max-w-[24rem] -translate-y-1/2 animate-float-in surface-float rounded-[1.125rem] border border-line-strong p-5">
           <AlertDialog.Title className="text-base leading-7 font-semibold text-ink">
             {title}
           </AlertDialog.Title>

@@ -21,7 +21,7 @@ export function ToggleSwitch({ id, checked, onCheckedChange, disabled }: ToggleS
       <Switch.Thumb
         className={cn(
           'absolute start-[3px] top-[3px] block size-[1.125rem] rounded-full bg-ink-2',
-          'transition-transform duration-150 ease-out data-[state=checked]:bg-on-key',
+          'transition-transform duration-200 ease-spring data-[state=checked]:bg-on-key',
           'ltr:data-[state=checked]:translate-x-4 rtl:data-[state=checked]:-translate-x-4',
         )}
       />

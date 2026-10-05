@@ -42,7 +42,7 @@ export function StatusChip() {
           align="start"
           sideOffset={8}
           collisionPadding={12}
-          className="z-50 w-[min(20rem,calc(100vw-1.5rem))] animate-fade-in surface-float rounded-[1rem] border border-line-strong p-4"
+          className="z-50 w-[min(20rem,calc(100vw-1.5rem))] origin-top animate-float-in surface-float rounded-[1rem] border border-line-strong p-4"
         >
           <h2 id={engineHeadingId} className="px-2.5 text-xs font-medium text-ink-3">
             {fa.status.engineTitle}

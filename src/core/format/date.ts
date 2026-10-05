@@ -1,8 +1,5 @@
 /** Which heading a History entry belongs under. */
-export type DayGroup =
-  | { kind: 'today' }
-  | { kind: 'yesterday' }
-  | { kind: 'date'; label: string }
+export type DayGroup = { kind: 'today' } | { kind: 'yesterday' } | { kind: 'date'; label: string }
 
 const MS_PER_DAY = 86_400_000
 

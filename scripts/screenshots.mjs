@@ -33,7 +33,18 @@ for (const [name, options] of Object.entries(viewports)) {
     permissions: ['microphone'],
   })
   const page = await context.newPage()
-  const shot = (state) => page.screenshot({ path: `${outDir}/${name}-${state}.png` })
+  const shot = async (state) => {
+    // Entrance animations run to their end first, so no shot catches a half-arrived screen.
+    await page.evaluate(() =>
+      Promise.all(
+        document
+          .getAnimations()
+          .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+          .map((animation) => animation.finished.catch(() => {})),
+      ),
+    )
+    await page.screenshot({ path: `${outDir}/${name}-${state}.png` })
+  }
 
   await page.goto(baseURL)
   await page.evaluate(() => document.fonts.ready)

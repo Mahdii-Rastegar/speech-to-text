@@ -5,7 +5,7 @@ import { cn } from '@/ui/format'
  * The voice line: flat where it meets the text, growing into a wave away from
  * it. The same motif runs live at the end of the transcript while recording.
  */
-export function VoiceMark({ className }: { className?: string }) {
+export function VoiceMark({ className, drawn }: { className?: string; drawn?: boolean }) {
   return (
     <svg viewBox="0 0 36 20" fill="none" aria-hidden="true" className={className}>
       <path
@@ -14,6 +14,10 @@ export function VoiceMark({ className }: { className?: string }) {
         strokeWidth="1.75"
         strokeLinecap="round"
         strokeLinejoin="round"
+        // Drawn from the text outwards, once, where the mark is the first thing seen.
+        pathLength={drawn ? 1 : undefined}
+        strokeDasharray={drawn ? 1 : undefined}
+        className={drawn ? 'animate-draw' : undefined}
       />
     </svg>
   )
