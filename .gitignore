@@ -12,7 +12,7 @@ src-tauri/target/
 src-tauri/gen/
 
 # Local models, audio and benchmark data: large or personal, never committed
-models/
+/models/
 bench/samples/
 bench/results/
 bench/tools/
@@ -27,7 +27,8 @@ bench/tools/
 *.gguf
 *.safetensors
 
-# Portable app runtime folders (user settings, history database)
+# Portable app: the assembled folders, and its runtime folders (settings, history database)
+/portable/
 /data/
 /config/
 *.db

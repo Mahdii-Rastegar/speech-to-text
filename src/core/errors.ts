@@ -11,6 +11,7 @@ export type AppErrorKind =
   | 'rate-limited'
   | 'model-unavailable'
   | 'local-engine-missing'
+  | 'local-model-missing'
   | 'file-unreadable'
   | 'file-too-large'
   | 'offline'
@@ -40,6 +41,7 @@ const TRAITS: Record<AppErrorKind, Pick<AppError, 'retryable' | 'canSwitchToLoca
   'rate-limited': { retryable: true, canSwitchToLocal: true },
   'model-unavailable': { retryable: false, canSwitchToLocal: true },
   'local-engine-missing': { retryable: false, canSwitchToLocal: false },
+  'local-model-missing': { retryable: false, canSwitchToLocal: false },
   'file-unreadable': { retryable: false, canSwitchToLocal: false },
   'file-too-large': { retryable: false, canSwitchToLocal: false },
   offline: { retryable: true, canSwitchToLocal: true },

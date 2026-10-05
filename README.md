@@ -2,7 +2,7 @@
 
 Offline-first speech-to-text for Persian and English: live transcription, local Whisper, optional cloud engines and AI clean-up. Windows desktop (Tauri) and iPhone (PWA) from one codebase.
 
-**Status: work in progress.** In the desktop app, recordings are transcribed offline by a local Whisper engine (whisper.cpp, `large-v3-turbo`); the text appears after the recording stops. The desktop app can also clean up, summarize and title a transcript with a chat model, through OpenRouter or Google's Gemini API and the user's own key; the key is kept in the Windows Credential Manager. In the browser the text and the AI step still come from scripted demos, and the cloud speech engines are demos everywhere. Audio stays in memory on the device and is never stored or sent; only when the AI step is switched on does the transcript text go to the chosen service.
+**Status: work in progress.** In the desktop app, speech is transcribed offline by a local Whisper engine (whisper.cpp, `large-v3-turbo`), sentence by sentence while the recording goes on; models are downloaded, checked and removed from inside the app. With the user's own key the desktop app can also transcribe through OpenRouter or Google's Gemini API, and clean up, summarize and title a transcript with a chat model; keys are kept in the Windows Credential Manager. In the browser the text and the AI step still come from scripted demos. Audio is never stored. It leaves the device only when a cloud engine is chosen, and the transcript text only when the AI step is switched on.
 
 ## Development
 
@@ -28,12 +28,21 @@ pnpm tauri build  # optimised executable in src-tauri/target/release
 
 This needs Rust (stable, `x86_64-pc-windows-msvc`), the MSVC C++ build tools with a Windows SDK, and the WebView2 runtime (part of Windows 11 and current Windows 10). If the build tools are not installed system-wide, `scripts/tauri.mjs` can use a self-contained toolchain folder; the comment at the top of that file explains how.
 
-The local engine is not part of the repository yet (an in-app download comes later). Development builds look for these, in the project folder:
+The local engine is not part of the repository. Development builds look for it in the project folder:
 
 - `bench/tools/whisper-cpp/Release/` (or `engine/`): a Windows release of [whisper.cpp](https://github.com/ggml-org/whisper.cpp/releases) with `whisper-server.exe`
-- `models/ggml/ggml-large-v3-turbo-q5_0.bin` (or directly in `models/`)
+- `models/`: model files, which the app downloads itself (Settings, local models)
 
 The CUDA build of whisper.cpp uses the graphics card only if it can load `cublas64_11.dll` and `cublasLt64_11.dll`. Put them beside the engine, or name their folder on the first line of a `cuda.local` file next to `package.json`. Without them the engine runs on the CPU, several times slower.
+
+### Portable folder
+
+```bash
+pnpm portable          # builds the app and assembles portable/Avanevis
+pnpm portable --gpu    # also assembles the optional GPU pack for NVIDIA cards
+```
+
+`portable/Avanevis` runs from wherever it is copied to and needs nothing installed besides the WebView2 runtime. It holds the app, the engine's CPU files and an empty `models` folder; the app creates `data` (History and settings) beside itself. The GPU pack is about a gigabyte of CUDA libraries, kept apart because it only helps on NVIDIA cards. The comment at the top of `scripts/portable.mjs` has the details.
 
 `node scripts/screenshots.mjs` (with the dev server running) saves screenshots of the main states to `test-results/screens/`.
 

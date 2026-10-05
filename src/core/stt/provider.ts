@@ -74,7 +74,8 @@ export interface STTProvider {
   readonly kind: ProviderKind
   readonly models: readonly ModelInfo[]
   getCapabilities(): STTCapabilities
-  validateConfiguration(): Promise<ConfigValidation>
+  /** Can a recording start now? `model` is the one it would use. */
+  validateConfiguration(model?: string): Promise<ConfigValidation>
   /** Gets `model` ready ahead of the first request. Engines with nothing to load leave this out. */
   warmUp?(model: string): void
   transcribe(

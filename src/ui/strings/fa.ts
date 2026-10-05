@@ -1,6 +1,7 @@
 import type { NoticeKind } from '@/app/stores/uiStore'
 import type { CloudProviderId } from '@/core/cloud/transport'
 import type { AppErrorKind } from '@/core/errors'
+import type { EngineOutlook, ModelFailureKind } from '@/core/models/localModels'
 import type { LanguageSetting, TranscriptVersion } from '@/core/session'
 
 /**
@@ -22,6 +23,8 @@ const languages: Record<LanguageSetting, string> = {
 
 const notices: Record<NoticeKind, string> = {
   'recording-started': 'ضبط شروع شد',
+  'recording-started-slow':
+    'ضبط شروع شد. موتور محلی روی پردازنده کار می‌کند؛ متن هر جمله با تأخیر زیاد می‌آید.',
   'recording-stopped': 'ضبط تمام شد و متن ذخیره شد',
   'nothing-recorded': 'چیزی ضبط نشد',
   copied: 'کپی شد',
@@ -38,6 +41,9 @@ const notices: Record<NoticeKind, string> = {
   'key-saved': 'کلید ذخیره شد',
   'key-save-failed': 'کلید ذخیره نشد. فقط خود کلید را، بدون فاصله، وارد کنید.',
   'key-deleted': 'کلید حذف شد',
+  'model-installed': 'مدل دانلود شد و آماده است',
+  'model-deleted': 'مدل حذف شد',
+  'model-delete-failed': 'مدل حذف نشد. اگر ضبطی در جریان است، بعد از پایانش دوباره تلاش کنید.',
   'mic-no-signal': 'از این میکروفون صدایی نمی‌رسد. در تنظیمات میکروفون دیگری انتخاب کنید.',
   'mic-fell-back': 'میکروفون انتخاب‌شده پیدا نشد؛ ضبط با میکروفون پیش‌فرض سیستم شروع شد.',
 }
@@ -93,8 +99,12 @@ const errors: Record<AppErrorKind, { title: string; body: string }> = {
     body: 'مدل دیگری را در تنظیمات انتخاب کنید.',
   },
   'local-engine-missing': {
-    title: 'موتور محلی یا فایل مدل پیدا نشد',
-    body: 'فایل‌های موتور محلی (whisper.cpp) و مدل باید در پوشه‌ی برنامه باشند.',
+    title: 'موتور محلی پیدا نشد',
+    body: 'پوشه‌ی engine باید کنار فایل برنامه باشد. برنامه را دوباره از بسته‌ی اصلی‌اش باز کنید.',
+  },
+  'local-model-missing': {
+    title: 'مدل موتور محلی هنوز دانلود نشده است',
+    body: 'مدل را در تنظیمات، بخش «مدل‌های موتور محلی»، دانلود کنید. بعد از آن اینترنت لازم نیست.',
   },
   'file-unreadable': {
     title: 'این فایل خوانده نشد',
@@ -120,12 +130,40 @@ const errors: Record<AppErrorKind, { title: string; body: string }> = {
 
 /** Display names for engines. Unknown ids fall back to the id itself. */
 const providers: Record<string, { name: string; hint?: string }> = {
-  'local-whisper': { name: 'Whisper محلی' },
+  'local-whisper': { name: 'Whisper محلی', hint: 'روی همین کامپیوتر، بدون اینترنت' },
   'demo-local': { name: 'Whisper محلی' },
   'demo-cloud': { name: 'OpenRouter' },
   'demo-failing': { name: 'سرویس ناموجود', hint: 'برای دیدن حالت خطا' },
   openrouter: { name: 'OpenRouter', hint: 'ابری، با کلید OpenRouter' },
   google: { name: 'Google Gemini', hint: 'ابری، با کلید Google AI Studio' },
+}
+
+/** What each local model is good for. Unknown ids show only their id. */
+const localModels: Record<string, { title: string; body: string }> = {
+  'large-v3-turbo': {
+    title: 'Whisper large-v3-turbo',
+    body: 'دقیق برای فارسی، انگلیسی و ترکیب هر دو. با کارت گرافیک NVIDIA سریع است.',
+  },
+  small: {
+    title: 'Whisper small',
+    body: 'سبک و کم‌حجم. برای انگلیسی خوب است، ولی در فارسی خطای زیادی دارد.',
+  },
+}
+
+const engineOutlooks: Record<EngineOutlook, string> = {
+  gpu: 'این کامپیوتر کارت گرافیک NVIDIA دارد و موتور محلی روی آن اجرا می‌شود.',
+  'gpu-pack-missing':
+    'کارت گرافیک NVIDIA پیدا شد، ولی بسته‌ی GPU کنار برنامه نیست؛ موتور محلی روی پردازنده اجرا می‌شود و هر جمله حدود نیم تا یک دقیقه طول می‌کشد. برنامه را ببندید و فایل‌های بسته‌ی GPU را در پوشه‌ی engine کپی کنید تا چند ثانیه شود.',
+  cpu: 'این کامپیوتر کارت گرافیک NVIDIA ندارد؛ موتور محلی روی پردازنده اجرا می‌شود و متن با تأخیر می‌آید. هر جمله حدود نیم تا یک دقیقه طول می‌کشد. برای متن زنده، موتور ابری بهتر جواب می‌دهد.',
+}
+
+const modelFailures: Record<ModelFailureKind, string> = {
+  offline: 'اتصال اینترنت برقرار نیست. بعد از وصل شدن، دانلود را ادامه دهید.',
+  timeout: 'اتصال قطع شد. دانلود را ادامه دهید؛ از همان‌جا پی گرفته می‌شود.',
+  blocked: 'سرور دانلود از این شبکه در دسترس نیست. با VPN دوباره تلاش کنید.',
+  corrupt: 'فایل دانلودشده سالم نبود و پاک شد. دوباره دانلود کنید.',
+  disk: 'نوشتن روی دیسک انجام نشد. فضای خالی و اجازه‌ی نوشتن در پوشه‌ی برنامه را بررسی کنید.',
+  failed: 'دانلود انجام نشد. دوباره تلاش کنید.',
 }
 
 const cloudProviders: Record<CloudProviderId, { name: string; keyLabel: string; hint: string }> = {
@@ -217,6 +255,9 @@ export const fa = {
   languages,
   providers,
   cloudProviders,
+  localModels,
+  engineOutlooks,
+  modelFailures,
   history: {
     title: 'تاریخچه',
     open: 'باز کردن تاریخچه',
@@ -251,6 +292,30 @@ export const fa = {
     sttModelTitle: 'مدل',
     sttModelHint: 'هزینه و دقت مدل‌ها فرق دارد؛ هزینه‌ی هر جلسه کنار متن آن نوشته می‌شود.',
     sttKeyMissing: 'برای این سرویس هنوز کلیدی ذخیره نشده است. آن را در بخش «کلید API» وارد کنید.',
+    languageAutoHint:
+      'در حالت خودکار، موتور محلی اول زبان را تشخیص می‌دهد و هر جمله تقریباً دو برابر طول می‌کشد. اگر بیشتر فارسی صحبت می‌کنید، «فارسی» را انتخاب کنید؛ کلمه‌های انگلیسی وسط جمله معمولاً همچنان به انگلیسی نوشته می‌شوند.',
+    modelsSection: 'مدل‌های موتور محلی',
+    modelsHint:
+      'مدل یک بار دانلود می‌شود و بعد از آن بدون اینترنت کار می‌کند. دانلودی که متوقف شود، بار بعد از همان‌جا ادامه پیدا می‌کند.',
+    modelRecommended: 'پیشنهادی',
+    modelInstalled: 'آماده',
+    modelInUse: 'در حال استفاده',
+    modelUse: 'استفاده',
+    modelMissing: 'دانلود نشده',
+    modelPartial: 'دانلود نیمه‌کاره',
+    modelVerifying: 'در حال بررسی فایل…',
+    modelDownload: 'دانلود',
+    modelResume: 'ادامه‌ی دانلود',
+    modelStop: 'توقف',
+    modelDelete: 'حذف',
+    /** Accessible names: the visible words are the same for every model. */
+    modelActionFor: '{action} {model}',
+    modelProgress: 'پیشرفت دانلود {model}',
+    megabytes: '{size} مگابایت',
+    megabytesOf: '{done} از {size} مگابایت',
+    confirmModelDeleteTitle: 'این مدل حذف شود؟',
+    confirmModelDeleteBody:
+      'فایل مدل از روی دیسک پاک می‌شود. برای استفاده‌ی دوباره باید آن را از نو دانلود کنید.',
     microphoneSection: 'میکروفون',
     microphoneDefault: 'پیش‌فرض سیستم',
     microphoneDefaultHint: 'همان ورودی‌ای که در تنظیمات صدای سیستم انتخاب شده است.',
@@ -328,6 +393,7 @@ export const fa = {
     retry: 'تلاش دوباره',
     switchToLocal: 'ادامه با موتور محلی',
     openSettings: 'باز کردن تنظیمات',
+    details: 'جزئیات فنی',
   },
   notices,
   noticesWithReason,

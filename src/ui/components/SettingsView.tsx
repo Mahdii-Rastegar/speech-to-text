@@ -4,6 +4,7 @@ import {
   Eye,
   EyeOff,
   FlaskConical,
+  HardDriveDownload,
   KeyRound,
   Mic,
   ShieldCheck,
@@ -14,9 +15,10 @@ import {
 import { RadioGroup } from 'radix-ui'
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
 import { previewError, resolveModel } from '@/app/recordingController'
-import { cloud, FALLBACK_PROVIDER_ID, providers } from '@/app/services'
+import { cloud, FALLBACK_PROVIDER_ID, localModels, providers } from '@/app/services'
 import { removeKey, saveKey, testKey, useKeys } from '@/app/stores/keysStore'
 import { useRecording } from '@/app/stores/recordingStore'
+import { useModels } from '@/app/stores/modelsStore'
 import { clearSessions, useSessions } from '@/app/stores/sessionsStore'
 import { settingsStore, updateSettings, useSettings } from '@/app/stores/settingsStore'
 import { notify } from '@/app/stores/uiStore'
@@ -30,12 +32,14 @@ import { DEFAULT_AI_MODELS } from '@/core/ai/chat'
 import { CLOUD_PROVIDERS, isCloudProvider, type CloudProviderId } from '@/core/cloud/transport'
 import type { AppErrorKind } from '@/core/errors'
 import { toPersianDigits } from '@/core/format/digits'
+import { engineOutlook } from '@/core/models/localModels'
 import { isBusy } from '@/core/recording/machine'
 import { AI_MODEL_MAX_LENGTH, GLOSSARY_MAX_LENGTH } from '@/core/settings'
 import { cn } from '@/ui/format'
 import { fa } from '@/ui/strings/fa'
 import { ConfirmDialog } from './ConfirmDialog'
 import { EngineRadios, LanguageRadios } from './EnginePicker'
+import { ModelsList } from './ModelsSection'
 import { PageHeader } from './PageHeader'
 import { ToggleSwitch } from './ToggleSwitch'
 
@@ -112,6 +116,10 @@ function EngineSection() {
   // Subscribed to, so the choice below follows the setting; the value itself is resolved.
   useSettings((settings) => settings.sttModel)
   const model = provider ? resolveModel(provider, settingsStore.getState()) : ''
+  const language = useSettings((settings) => settings.language)
+  const system = useModels((state) => state.system)
+  const outlook = offline && system ? engineOutlook(system) : 'gpu'
+  const slowOutlook = outlook === 'gpu' ? null : outlook
   const keyMissing = useKeys((keys) =>
     provider && isCloudProvider(provider.id) ? !keys[provider.id] : false,
   )
@@ -127,7 +135,10 @@ function EngineSection() {
         {offline ? fa.status.localPrivacy : fa.status.cloudPrivacy}
       </p>
       {keyMissing && <p className="mt-2 text-xs leading-5 text-rec">{fa.settings.sttKeyMissing}</p>}
-      {provider && provider.models.length > 1 && (
+      {slowOutlook && (
+        <p className="mt-2 text-xs leading-5 text-rec">{fa.engineOutlooks[slowOutlook]}</p>
+      )}
+      {provider && !offline && provider.models.length > 1 && (
         <>
           <h4 id={modelHeadingId} className="mt-5 text-xs font-medium text-ink-3">
             {fa.settings.sttModelTitle}
@@ -156,6 +167,9 @@ function EngineSection() {
         {fa.status.languageTitle}
       </h4>
       <LanguageRadios labelledBy={languageHeadingId} disabled={busy} className="mt-2 sm:max-w-80" />
+      {offline && language === 'auto' && (
+        <p className="mt-2 text-xs leading-5 text-ink-3">{fa.settings.languageAutoHint}</p>
+      )}
     </Section>
   )
 }
@@ -635,6 +649,11 @@ export function SettingsView() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto grid w-full max-w-[46rem] gap-4 px-4 pt-2 pb-10 sm:px-8">
           <EngineSection />
+          {localModels && (
+            <Section icon={HardDriveDownload} title={fa.settings.modelsSection}>
+              <ModelsList />
+            </Section>
+          )}
           <MicrophoneSection />
           <GlossarySection />
           <AiSection />

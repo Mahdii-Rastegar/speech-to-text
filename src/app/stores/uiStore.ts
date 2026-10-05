@@ -6,6 +6,7 @@ import type { TranscriptVersion } from '@/core/session'
 /** Short messages for the user. The interface layer turns each kind into text. */
 export type NoticeKind =
   | 'recording-started'
+  | 'recording-started-slow'
   | 'recording-stopped'
   | 'nothing-recorded'
   | 'copied'
@@ -22,6 +23,9 @@ export type NoticeKind =
   | 'key-saved'
   | 'key-save-failed'
   | 'key-deleted'
+  | 'model-installed'
+  | 'model-deleted'
+  | 'model-delete-failed'
   | 'mic-no-signal'
   | 'mic-fell-back'
 

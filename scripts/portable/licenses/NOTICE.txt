@@ -1,0 +1,19 @@
+Third-party parts shipped in this folder
+
+engine/whisper-server.exe, whisper.dll, ggml*.dll
+    whisper.cpp, https://github.com/ggml-org/whisper.cpp
+    MIT licence, see whisper.cpp.txt
+
+engine/msvcp140.dll, vcruntime140.dll, vcruntime140_1.dll, vcomp140.dll
+    Microsoft Visual C++ runtime libraries, redistributed unmodified with this
+    application as Microsoft's licence terms for Visual Studio allow.
+
+Fonts inside Avanevis.exe
+    Vazirmatn, https://github.com/rastikerdar/vazirmatn
+    JetBrains Mono, https://github.com/JetBrains/JetBrainsMono
+    Both under the SIL Open Font License 1.1, https://openfontlicense.org
+
+Model files are not shipped with the app unless whoever gave you this folder
+added them. The app downloads them from
+https://huggingface.co/ggerganov/whisper.cpp. They are OpenAI's Whisper models
+(MIT licence, https://github.com/openai/whisper) in whisper.cpp's file format.

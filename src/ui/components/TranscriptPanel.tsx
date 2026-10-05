@@ -27,6 +27,7 @@ const FIXED_IN_SETTINGS: readonly AppErrorKind[] = [
   'missing-api-key',
   'invalid-api-key',
   'model-unavailable',
+  'local-model-missing',
 ]
 
 const COLUMN = 'mx-auto w-full max-w-[46rem] px-5 sm:px-8'
@@ -106,6 +107,14 @@ function ErrorPanel({ error }: { error: AppError }) {
         <div className="min-w-0">
           <h2 className="text-base leading-7 font-semibold text-ink">{message.title}</h2>
           <p className="mt-0.5 text-[0.9375rem] leading-7 text-ink-2">{message.body}</p>
+          {error.detail && (
+            <details className="mt-2 text-xs leading-5 text-ink-3">
+              <summary className="cursor-pointer">{fa.errorActions.details}</summary>
+              <p dir="ltr" className="mt-1 font-mono break-words text-start">
+                {error.detail}
+              </p>
+            </details>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             {error.retryable && (
               <button type="button" onClick={retry} className="btn btn-primary">

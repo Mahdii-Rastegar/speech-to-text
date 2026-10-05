@@ -31,7 +31,9 @@ const CUDA_DIR_VAR: &str = "STT_CUDA_DLL_DIR";
 
 /// The audio the app sends: 16 kHz, mono, 16-bit.
 const SAMPLE_RATE: u32 = 16_000;
-const STARTUP_TIMEOUT: Duration = Duration::from_secs(90);
+/// Generous: the first start after a download reads the whole model from a cold disk,
+/// often while an antivirus is still looking at the new files.
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(240);
 const LOG_LINES_KEPT: usize = 30;
 /// The engine's line that says the model went to the graphics card.
 const GPU_MARKER: &str = "whisper_backend_init_gpu: using";
@@ -85,8 +87,6 @@ pub struct Segment {
 #[serde(rename_all = "camelCase")]
 pub struct Transcript {
     segments: Vec<Segment>,
-    /// The language the engine worked in, as it names it.
-    language: String,
     gpu: bool,
     /// Time spent recognizing, without loading the model.
     elapsed_ms: u64,
@@ -104,17 +104,9 @@ struct RequestHeader {
 #[derive(Deserialize)]
 struct ServerReply {
     error: Option<String>,
+    /// Everything that was said, one line per sentence the engine made out.
     #[serde(default)]
-    language: String,
-    #[serde(default)]
-    segments: Vec<ServerSegment>,
-}
-
-#[derive(Deserialize)]
-struct ServerSegment {
     text: String,
-    start: f64,
-    end: f64,
 }
 
 // --------------------------------------------------------------------------
@@ -122,10 +114,7 @@ struct ServerSegment {
 // --------------------------------------------------------------------------
 
 fn model_file(model: &str) -> Option<&'static str> {
-    match model {
-        "large-v3-turbo" => Some("ggml-large-v3-turbo-q5_0.bin"),
-        _ => None,
-    }
+    crate::models::spec(model).map(|spec| spec.file)
 }
 
 /// The folder of the executable. Development builds also look in the folders
@@ -145,6 +134,48 @@ fn find(override_var: &str, sub_dirs: &[&str], file: &str) -> Option<PathBuf> {
         .iter()
         .flat_map(|root| sub_dirs.iter().map(move |dir| root.join(dir).join(file)))
         .find(|path| path.is_file())
+}
+
+/// A model file, wherever the app looks for models.
+pub fn find_model(file: &str) -> Option<PathBuf> {
+    find(MODELS_DIR_VAR, &MODEL_DIRS, file)
+}
+
+/// Where a downloaded model goes: the models folder that is already there,
+/// or a new one beside the executable.
+pub fn models_dir() -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os(MODELS_DIR_VAR) {
+        return Some(PathBuf::from(dir));
+    }
+    let roots = search_roots();
+    let existing = roots.iter().map(|root| root.join(MODEL_DIRS[0])).find(|dir| dir.is_dir());
+    existing.or_else(|| roots.first().map(|root| root.join(MODEL_DIRS[0])))
+}
+
+/// What this computer offers the engine.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemInfo {
+    /// Logical processors.
+    cores: usize,
+    /// An NVIDIA graphics driver is installed.
+    nvidia: bool,
+    /// The engine's own graphics-card libraries are in place.
+    gpu_pack: bool,
+}
+
+pub fn system_info() -> SystemInfo {
+    let system_dir = std::env::var_os("SystemRoot").map(|root| PathBuf::from(root).join("System32"));
+    let nvidia = system_dir.is_some_and(|dir| dir.join("nvcuda.dll").is_file());
+    let engine_dir =
+        find(ENGINE_DIR_VAR, &ENGINE_DIRS, SERVER_EXE).and_then(|server| server.parent().map(Path::to_path_buf));
+    let gpu_pack = engine_dir.is_some_and(|dir| {
+        let cuda_dir = std::env::var_os(CUDA_DIR_VAR).map(PathBuf::from);
+        let has =
+            |file: &str| dir.join(file).is_file() || cuda_dir.as_ref().is_some_and(|cuda| cuda.join(file).is_file());
+        dir.join("ggml-cuda.dll").is_file() && has("cublas64_11.dll") && has("cublasLt64_11.dll")
+    });
+    SystemInfo { cores: std::thread::available_parallelism().map_or(1, usize::from), nvidia, gpu_pack }
 }
 
 struct Paths {
@@ -377,6 +408,11 @@ fn multipart_body(boundary: &str, fields: &[(&str, &str)], wav: &[u8]) -> Vec<u8
     body
 }
 
+/// The engine's lines as one run of text.
+fn one_line(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 /// Splits what the interface sent: a 4-byte length, that many bytes of JSON, then the audio.
 fn split_payload(payload: &[u8]) -> Result<(RequestHeader, &[u8]), EngineError> {
     let (length, rest) = payload
@@ -422,12 +458,9 @@ impl Engine {
         };
 
         let audio_seconds = pcm.len() as u64 / (u64::from(SAMPLE_RATE) * 2);
-        let mut fields = vec![
-            ("response_format", "verbose_json"),
-            ("language", header.language.as_str()),
-            // Without this the engine starts a new segment in the middle of a word.
-            ("split_on_word", "true"),
-        ];
+        // Plain text only. Asking the server for timed segments ("verbose_json") makes it
+        // go over the audio a second time, which doubles the wait for nothing the app shows.
+        let mut fields = vec![("response_format", "json"), ("language", header.language.as_str())];
         let prompt = header.prompt.trim();
         if !prompt.is_empty() {
             fields.push(("prompt", prompt));
@@ -458,22 +491,25 @@ impl Engine {
             return Err(EngineError::failed(error));
         }
 
-        let to_ms = |seconds: f64| (seconds.max(0.0) * 1000.0).round() as u64;
+        let text = one_line(&reply.text);
+        let segments = if text.is_empty() {
+            Vec::new()
+        } else {
+            vec![Segment { text, start_ms: 0, end_ms: pcm.len() as u64 * 1000 / (u64::from(SAMPLE_RATE) * 2) }]
+        };
         Ok(Transcript {
-            segments: reply
-                .segments
-                .into_iter()
-                .map(|segment| Segment {
-                    text: segment.text.trim().to_owned(),
-                    start_ms: to_ms(segment.start),
-                    end_ms: to_ms(segment.end),
-                })
-                .filter(|segment| !segment.text.is_empty())
-                .collect(),
-            language: reply.language,
+            segments,
             gpu,
             elapsed_ms: started.elapsed().as_millis() as u64,
         })
+    }
+
+    /// Lets go of `model`'s file, so it can be deleted.
+    pub fn release(&self, model: &str) {
+        let mut slot = unpoisoned(&self.running);
+        if slot.as_ref().is_some_and(|running| running.model == model) {
+            *slot = None;
+        }
     }
 
     /// Stops the child and frees the model's memory.
@@ -584,6 +620,12 @@ mod tests {
         assert_eq!(&wav[..4], b"RIFF");
         assert_eq!(u32::from_le_bytes(wav[40..44].try_into().unwrap()), 32_000);
         assert_eq!(u32::from_le_bytes(wav[24..28].try_into().unwrap()), SAMPLE_RATE);
+    }
+
+    #[test]
+    fn joins_the_lines_the_engine_answers_with() {
+        assert_eq!(one_line(" Hello there.\n We deploy on Monday.\n"), "Hello there. We deploy on Monday.");
+        assert_eq!(one_line(" \n "), "");
     }
 
     #[test]

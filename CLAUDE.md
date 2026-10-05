@@ -20,6 +20,7 @@ pnpm test:e2e            # Playwright in the installed Microsoft Edge
 pnpm build               # tsc -b && vite build
 pnpm tauri dev           # desktop app in a native window, hot reload
 pnpm tauri build         # release executable in src-tauri/target/release
+pnpm portable            # release build + the portable folder in portable/ (see scripts/portable.mjs)
 ```
 
 Single tests:
@@ -39,9 +40,13 @@ pnpm playwright test -g "title of the test"
 
 Always go through `pnpm tauri ...` (`scripts/tauri.mjs`), never call `cargo` or the Tauri CLI directly: Rust and MSVC may live in a self-contained folder that is not on PATH. The script reads that folder from `STT_TOOLCHAIN_DIR` or the first line of the git-ignored `toolchain.local`, and builds the environment (`CARGO_HOME`, `INCLUDE`, `LIB`, `PATH`) for the child process only. The same goes for `cuda.local` / `STT_CUDA_DLL_DIR` (folder holding `cublas64_11.dll` and `cublasLt64_11.dll`); without them the engine silently runs on the CPU, several times slower.
 
-The Rust modules (`engine.rs`, `history.rs`, `audio.rs`, `cloud.rs`, `secrets.rs`) have unit tests, but there is no package script for them; running `cargo test` needs the same toolchain environment the script sets up.
+The Rust modules (`engine.rs`, `models.rs`, `history.rs`, `audio.rs`, `cloud.rs`, `secrets.rs`) have unit tests, but there is no package script for them; running `cargo test` needs the same toolchain environment the script sets up.
 
-Development builds find the engine and model by walking up from the executable: `bench/tools/whisper-cpp/Release/whisper-server.exe` (or `engine/`) and `models/ggml/ggml-large-v3-turbo-q5_0.bin` (or `models/`). Overrides: `STT_ENGINE_DIR`, `STT_MODELS_DIR`. Neither is in the repository. The History database is `data/history.sqlite3` beside the executable; development builds use the project's git-ignored `data/` instead (`STT_DATA_DIR` overrides both).
+Development builds find the engine and model by walking up from the executable: `bench/tools/whisper-cpp/Release/whisper-server.exe` (or `engine/`) and `models/ggml/ggml-large-v3-turbo-q5_0.bin` (or `models/`). Overrides: `STT_ENGINE_DIR`, `STT_MODELS_DIR`. Neither is in the repository. The History database is `data/history.sqlite3` beside the executable, and the web view keeps its own files (the localStorage settings among them) in `data/webview`; development builds use the project's git-ignored `data/` instead (`STT_DATA_DIR` overrides both).
+
+### Portable folder
+
+`scripts/portable.mjs` builds the release executable with the C runtime linked in (`RUSTFLAGS=-C target-feature=+crt-static`, set for that build only) and assembles `portable/Avanevis/`: the executable, `engine/` with whisper.cpp's CPU files and the Microsoft runtime libraries they import, an empty `models/`, and the README and notices kept in `scripts/portable/`. Running it again updates the folder in place and never removes `data/`, `models/` or GPU files already in `engine/`. `--gpu` also assembles `portable/Avanevis-gpu-pack/` (`ggml-cuda.dll` and the CUDA libraries, about a gigabyte), whose files are copied into `engine/` by hand; without them the same engine runs on the CPU. `--with-model` copies the recommended model in. Everything under `portable/` is git-ignored. A release build looks for `engine/`, `models/` and `data/` only beside the executable.
 
 ## Architecture
 
@@ -61,7 +66,7 @@ Path alias `@/` is `src/` (used everywhere except inside `src/core`).
 
 1. `startRecording` must run inside the click handler: it requests the microphone and validates the provider in parallel so the browser's user-gesture permission is not lost.
 2. Captured blocks go to an input monitor (level meter, VAD, "no signal" notice) and to a `LiveSession`.
-3. The `LiveSession` comes from `provider.transcribeStream?.()` or, for batch engines, from `createChunkedLiveSession` (`src/core/stt/chunkedLive.ts`), which cuts the recording at the speaker's pauses and sends each piece as it ends, one request at a time, so finals arrive sentence by sentence. For engines that are free to run it also re-transcribes the sentence in progress to show interim text. It never sends a piece in which the VAD heard no voice, because Whisper invents text from silence. The local engine needs about 3 seconds per request whatever the clip length (measured on the development GPU), which is what bounds the live delay; lowering whisper's `audio_ctx` to speed up short clips was tried and ruins the output.
+3. The `LiveSession` comes from `provider.transcribeStream?.()` or, for batch engines, from `createChunkedLiveSession` (`src/core/stt/chunkedLive.ts`), which cuts the recording at the speaker's pauses and sends each piece as it ends, one request at a time, so finals arrive sentence by sentence. For engines that are free to run it also re-transcribes the sentence in progress to show interim text. It never sends a piece in which the VAD heard no voice, because Whisper invents text from silence. The local engine goes over a full 30-second window per request whatever the clip length, and once more when the language is `auto` (it detects the language first), which is what bounds the live delay: a few seconds on the development GPU, half a minute to a minute on its CPU. Interim text is therefore left out when the engine runs on the CPU (`runsOnProcessor`). Lowering whisper's `audio_ctx` to speed up short clips was tried and ruins the output.
 4. All state changes go through `dispatchRecording(event)` into the pure reducer in `src/core/recording/machine.ts` (`idle → starting → recording → finalizing → done | error`). The reducer ignores events that do not fit the current phase, which is what makes late engine callbacks harmless; keep new transitions in the reducer rather than setting store state directly.
 5. An uploaded file takes the same path without the microphone (`transcribeFile`): `decodeFile` turns it into 16 kHz mono, `transcribeRecording` (`src/core/stt/fileTranscription.ts`) cuts it at pauses into pieces of at most 25 seconds and sends them one by one, and the reducer goes `starting → finalizing` with `source: 'file'` and a `progress` value. The web view decodes the file; the desktop app falls back to the native `audio_decode` command for what the web view cannot read (Apple Lossless, which iPhone voice memos may use).
 6. On stop, a `TranscriptionSession` is stored and the optional AI step (`processSession`) fills `cleanTranscript`, `summary`, `title`. `rawTranscript` is never rewritten.
@@ -80,11 +85,12 @@ Failures are `AppError` values (`src/core/errors.ts`) with a closed set of kinds
 
 `src/platform/tauri/localWhisper.ts` ↔ `src-tauri/src/lib.rs` (the commands) ↔ `src-tauri/src/engine.rs`.
 
-- The Rust side runs whisper.cpp's `whisper-server.exe` as a child process on `127.0.0.1` with a port chosen at start, keeps the model loaded between recordings, and talks to it with a hand-written HTTP multipart request (no HTTP client dependency). A Windows job object kills the child if the app dies.
+- The Rust side runs whisper.cpp's `whisper-server.exe` as a child process on `127.0.0.1` with a port chosen at start, keeps the model loaded between recordings, and talks to it with a hand-written HTTP multipart request (no HTTP client dependency). It asks for `response_format=json` and returns the clip's text as one segment: `verbose_json` was measured to cost a second pass over the audio. A Windows job object kills the child if the app dies.
 - `local_engine_transcribe` takes a raw binary body, not JSON: 4-byte little-endian header length, a JSON header (`model`, `language`, `prompt`), then 16-bit PCM. `buildPayload` in TypeScript and `split_payload` in Rust must change together.
 - Rust errors serialize as `{ kind, detail }` with kebab-case kinds; `toFailure` maps them onto `AppErrorKind`.
-- The model id to file name mapping is in `model_file` (Rust) and the model list in `MODELS` (TypeScript).
-- The CSP in `tauri.conf.json` allows only `self` and Tauri IPC in `connect-src`. It stays that way: cloud requests leave from the native side, not from the web view.
+- The models are listed in `CATALOG` in `src-tauri/src/models.rs` (id, file name, size, SHA-256) and by id in `MODELS` (TypeScript); their Persian descriptions are in `fa.localModels`. `models.rs` also downloads them: in 4 MB range requests into a `.part` file that a later attempt carries on from, renamed only when the checksum matches. The interface side is `LocalModels` (`src/core/models/localModels.ts`) ↔ `src/platform/tauri/models.ts`, with progress over a Tauri `Channel`, and `modelsStore`. `engineOutlook` turns `system_info` (NVIDIA driver, GPU libraries present) into the advice shown above the list; the first model of the catalog is the recommended one on every computer, because the small model was measured to be poor at Persian. The model in use is chosen in that same list (`selectLocalModel`); the engine section offers a model choice only for cloud engines.
+- A missing model is its own error kind (`local-model-missing`), so the message can send the user to the download in Settings; `validateConfiguration(model)` checks the model the recording would use.
+- The CSP in `tauri.conf.json` allows only `self` and Tauri IPC in `connect-src`. It stays that way: cloud requests and model downloads leave from the native side, not from the web view.
 
 ### Cloud services and the AI step
 

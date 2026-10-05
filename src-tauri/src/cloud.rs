@@ -168,28 +168,32 @@ fn system_proxy() -> Option<Proxy> {
 }
 
 /// Built for each request, so switching a VPN on or off takes effect at once.
-fn agent() -> Agent {
+pub(crate) fn agent(timeout: Duration, max_redirects: u32) -> Agent {
     let tls = TlsConfig::builder().provider(TlsProvider::NativeTls).root_certs(RootCerts::PlatformVerifier).build();
     Agent::config_builder()
         .tls_config(tls)
         .proxy(system_proxy().or_else(Proxy::try_from_env))
-        .timeout_global(Some(TIMEOUT))
+        .timeout_global(Some(timeout))
         .timeout_connect(Some(CONNECT_TIMEOUT))
         .http_status_as_error(false)
-        .max_redirects(0)
+        .max_redirects(max_redirects)
         .build()
         .new_agent()
 }
 
-fn transport_error(error: ureq::Error) -> CloudError {
-    let kind = match &error {
+/// Why a request got no answer.
+pub(crate) fn failure_kind(error: &ureq::Error) -> ErrorKind {
+    match error {
         ureq::Error::Timeout(_) => ErrorKind::Timeout,
         ureq::Error::HostNotFound | ureq::Error::ConnectionFailed | ureq::Error::Io(_) | ureq::Error::ConnectProxyFailed(_) => {
             ErrorKind::Offline
         }
         _ => ErrorKind::Failed,
-    };
-    CloudError::new(kind, error.to_string())
+    }
+}
+
+fn transport_error(error: ureq::Error) -> CloudError {
+    CloudError::new(failure_kind(&error), error.to_string())
 }
 
 fn send(
@@ -198,7 +202,8 @@ fn send(
     header: (&str, String),
     body: Option<&str>,
 ) -> Result<CloudResponse, CloudError> {
-    let agent = agent();
+    // No redirects: the key goes to the provider's own address and nowhere else.
+    let agent = agent(TIMEOUT, 0);
     let result = match method {
         Method::Get => agent.get(url).header(header.0, header.1).call(),
         Method::Post => agent

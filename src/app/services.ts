@@ -6,6 +6,7 @@ import { createChatAIProcessor } from '@/core/ai/providers/chat'
 import { createDemoAIProcessor } from '@/core/ai/providers/demo'
 import { CLOUD_PROVIDERS, type CloudAccess } from '@/core/cloud/transport'
 import type { HistoryRepository } from '@/core/history/repository'
+import type { LocalModels } from '@/core/models/localModels'
 import type { Settings } from '@/core/settings'
 import { createCloudSttProvider } from '@/core/stt/providers/cloud'
 import { createDemoProvider } from '@/core/stt/providers/demo'
@@ -18,6 +19,7 @@ import {
   hasNativeEngine,
   LOCAL_WHISPER_ID,
 } from '@/platform/tauri/localWhisper'
+import { createNativeModels } from '@/platform/tauri/models'
 import { createBrowserHistory } from '@/platform/web/history'
 
 /**
@@ -75,6 +77,9 @@ if (cloud) {
     }),
   )
 }
+
+/** The local engine's model files. Null where there is no local engine to keep them for. */
+export const localModels: LocalModels | null = nativeEngine ? createNativeModels() : null
 
 const demoAiProcessor = createDemoAIProcessor()
 

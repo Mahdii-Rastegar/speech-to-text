@@ -8,6 +8,7 @@ import {
   type AppError,
   type AppErrorKind,
 } from '@/core/errors'
+import { engineOutlook } from '@/core/models/localModels'
 import { isBusy } from '@/core/recording/machine'
 import {
   addCosts,
@@ -34,6 +35,7 @@ import {
   providers,
 } from './services'
 import { inputStore, resetInput } from './stores/inputStore'
+import { modelsStore } from './stores/modelsStore'
 import { dispatchRecording, recordingStore } from './stores/recordingStore'
 import {
   addSession,
@@ -80,6 +82,12 @@ export function resolveProvider(settings: Settings): STTProvider {
 export function resolveModel(provider: STTProvider, settings: Settings): string {
   const chosen = provider.models.find((model) => model.id === settings.sttModel)
   return (chosen ?? provider.models[0])?.id ?? ''
+}
+
+/** The local engine without a graphics card: every request takes far longer than the speech it holds. */
+function runsOnProcessor(provider: STTProvider): boolean {
+  const { system } = modelsStore.getState()
+  return provider.getCapabilities().offline && system !== null && engineOutlook(system) !== 'gpu'
 }
 
 /** Releases the microphone and everything that was following it. */
@@ -154,7 +162,7 @@ async function beginRecording(): Promise<void> {
 
   // Both start inside the click: asking for the microphone later could lose the right to ask.
   const [validation, opened] = await Promise.all([
-    provider.validateConfiguration(),
+    provider.validateConfiguration(model),
     openMicrophone(settings.microphoneId),
   ])
   if (recordingStore.getState().phase !== 'starting') {
@@ -178,14 +186,17 @@ async function beginRecording(): Promise<void> {
   }
 
   const options = { model, language: settings.language, prompt: settings.glossary }
+  const slow = runsOnProcessor(provider)
   let live: LiveSession
   try {
     provider.warmUp?.(model)
     live =
       provider.transcribeStream?.(options) ??
       createChunkedLiveSession(provider, options, CAPTURE_SAMPLE_RATE, {
-        // Interim text repeats requests, which is only free on this computer.
-        interimEveryMs: provider.getCapabilities().billing === 'none' ? INTERIM_EVERY_MS : null,
+        // Interim text repeats requests, which is only free on this computer,
+        // and only affordable there when a graphics card does the work.
+        interimEveryMs:
+          provider.getCapabilities().billing === 'none' && !slow ? INTERIM_EVERY_MS : null,
       })
   } catch (cause) {
     capture.stop()
@@ -210,7 +221,9 @@ async function beginRecording(): Promise<void> {
     createdAt: new Date().toISOString(),
   }
   dispatchRecording({ type: 'STARTED', at: Date.now() })
-  notify(opened.usedDefault ? 'mic-fell-back' : 'recording-started')
+  notify(
+    opened.usedDefault ? 'mic-fell-back' : slow ? 'recording-started-slow' : 'recording-started',
+  )
 }
 
 export async function stopRecording(): Promise<void> {
@@ -319,7 +332,7 @@ async function runFile(file: Blob): Promise<void> {
   let result: TranscriptionResult
   try {
     const [validation, samples] = await Promise.all([
-      provider.validateConfiguration(),
+      provider.validateConfiguration(model),
       decodeFile(file),
     ])
     if (cancel.signal.aborted) return
@@ -434,6 +447,13 @@ export function selectProvider(providerId: string): void {
   const provider = providers.get(providerId)
   if (!provider) return
   updateSettings({ sttProviderId: provider.id, sttModel: provider.models[0]?.id ?? '' })
+}
+
+/** Makes the local engine the chosen one, with this model. */
+export function selectLocalModel(model: string): void {
+  const local = providers.list().find((provider) => provider.getCapabilities().offline)
+  if (!local?.models.some((entry) => entry.id === model)) return
+  updateSettings({ sttProviderId: local.id, sttModel: model })
 }
 
 /** The way out of a cloud failure: continue the work with the offline engine. */

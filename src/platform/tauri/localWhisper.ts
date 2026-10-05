@@ -1,6 +1,6 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { toPcm16 } from '@/core/audio/pcm'
-import { AppFailure, createAppError } from '@/core/errors'
+import { AppFailure, createAppError, type AppErrorKind } from '@/core/errors'
 import type { ModelInfo, STTProvider } from '@/core/stt/provider'
 
 export const LOCAL_WHISPER_ID = 'local-whisper'
@@ -8,17 +8,23 @@ export const LOCAL_WHISPER_ID = 'local-whisper'
 /** The audio format the native side expects. */
 const ENGINE_SAMPLE_RATE = 16_000
 
-const MODELS: readonly ModelInfo[] = [{ id: 'large-v3-turbo' }]
+/** The same ids as the native side's catalog (`CATALOG` in `models.rs`). */
+const MODELS: readonly ModelInfo[] = [{ id: 'large-v3-turbo' }, { id: 'small' }]
 
 interface EngineTranscript {
   segments: { text: string; startMs: number; endMs: number }[]
-  language: string
   gpu: boolean
   elapsedMs: number
 }
 
 /** True inside the desktop app, where the native engine exists. */
 export const hasNativeEngine = (): boolean => isTauri()
+
+/** The native side's failure kinds, as the app's own. */
+const KINDS: Record<string, AppErrorKind> = {
+  'engine-missing': 'local-engine-missing',
+  'model-missing': 'local-model-missing',
+}
 
 /** Turns what a failed native command rejects with into the app's own error. */
 function toFailure(cause: unknown): AppFailure {
@@ -27,9 +33,8 @@ function toFailure(cause: unknown): AppFailure {
     detail?: unknown
   }
   const text = typeof detail === 'string' ? detail : String(cause)
-  const missing = kind === 'engine-missing' || kind === 'model-missing'
   return new AppFailure(
-    createAppError(missing ? 'local-engine-missing' : 'provider-unavailable', text),
+    createAppError((typeof kind === 'string' && KINDS[kind]) || 'provider-unavailable', text),
   )
 }
 
@@ -68,9 +73,9 @@ export function createLocalWhisperProvider(): STTProvider {
       languages: ['auto', 'fa', 'en'],
       billing: 'none',
     }),
-    async validateConfiguration() {
+    async validateConfiguration(model) {
       try {
-        await invoke('local_engine_check', { model: MODELS[0]?.id })
+        await invoke('local_engine_check', { model: model ?? MODELS[0]?.id })
         return { ok: true }
       } catch (cause) {
         return { ok: false, error: toFailure(cause).appError }

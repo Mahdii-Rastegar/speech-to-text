@@ -18,7 +18,7 @@ const DATA_DIR_VAR: &str = "STT_DATA_DIR";
 /// The folder beside the executable, so the app can be carried around with its
 /// data. Development builds use the project folder instead, where a clean
 /// build does not erase it.
-fn data_dir() -> Result<PathBuf, String> {
+pub fn data_dir() -> Result<PathBuf, String> {
     if let Some(dir) = std::env::var_os(DATA_DIR_VAR) {
         return Ok(PathBuf::from(dir));
     }
