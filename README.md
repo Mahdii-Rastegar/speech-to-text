@@ -8,6 +8,16 @@ Audio is never stored. It leaves the device only when a cloud engine is chosen, 
 
 On the development laptop's small NVIDIA card the local engine transcribes about nine times faster than speech and a sentence comes back in a second or two; without a graphics card it is slower than speech, and a cloud engine is the better choice for live text.
 
+## Using it
+
+There is no ready-made download yet: the app is built from this repository. The interface is in Persian.
+
+- **Windows.** Follow "Desktop app" and "Portable folder" below. The result is a folder that runs from anywhere without installing anything. On first start, download a model under Settings (about 550 MB, once) to transcribe offline, or enter your own OpenRouter or Google AI Studio key to use a cloud engine.
+- **iPhone, or any browser.** Follow "Web app" below to host the site, open it and enter your own key under Settings. Nothing is transcribed on the phone itself; the recording goes to the cloud service you chose.
+- **Just looking.** `pnpm install` and `pnpm dev` show a scripted demo of the whole interface, with no key, model or engine.
+
+Keys are yours: the app has no server of its own and nobody else's key is built in. Both cloud services may be unreachable from some networks; the app says so when a request is refused.
+
 ## Development
 
 Requires Node 22+ and pnpm 10.
