@@ -108,6 +108,40 @@ describe('recordingReducer', () => {
     expect(restarted.segments).toEqual([])
   })
 
+  it('walks through a file: read, turned into text piece by piece, done', () => {
+    const reading = run([{ type: 'START_REQUESTED', source: 'file' }])
+    expect(reading.phase).toBe('starting')
+    expect(reading.source).toBe('file')
+    // A file has no microphone to start.
+    expect(recordingReducer(reading, { type: 'STARTED', at: 0 })).toBe(reading)
+
+    const working = run(
+      [
+        { type: 'FILE_READY', durationMs: 90_000 },
+        { type: 'FINAL', segment: segment('a', 'تکه‌ی اول') },
+        { type: 'PROGRESS', fraction: 0.4 },
+        { type: 'PROGRESS', fraction: 0.3 },
+      ],
+      reading,
+    )
+    expect(working.phase).toBe('finalizing')
+    expect(working.durationMs).toBe(90_000)
+    expect(working.progress).toBe(0.4)
+
+    const done = run([{ type: 'PROGRESS', fraction: 1 }, { type: 'FINALIZED' }], working)
+    expect(done.phase).toBe('done')
+    expect(done.segments).toHaveLength(1)
+
+    const next = recordingReducer(done, { type: 'START_REQUESTED' })
+    expect(next.source).toBe('microphone')
+    expect(next.progress).toBe(0)
+  })
+
+  it('does not take a file event during a microphone recording', () => {
+    const starting = run([{ type: 'START_REQUESTED' }])
+    expect(recordingReducer(starting, { type: 'FILE_READY', durationMs: 1 })).toBe(starting)
+  })
+
   it('resets from any phase', () => {
     const recording = run([{ type: 'START_REQUESTED' }, { type: 'STARTED', at: 0 }])
     expect(recordingReducer(recording, { type: 'RESET' })).toBe(INITIAL_RECORDING_STATE)

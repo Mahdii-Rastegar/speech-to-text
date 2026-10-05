@@ -28,31 +28,40 @@ function voiceSample(time: number): number {
   return (sample / 6) * syllables * 0.5
 }
 
-function buildWav(): Buffer {
+/** One round of voice and pause as 16-bit samples. Synthesized once: it is the slow part. */
+let cyclePcm: Buffer | undefined
+
+function buildCycle(): Buffer {
   const speech = Math.round((SAMPLE_RATE * FAKE_SPEECH_MS) / 1000)
-  const total = speech + Math.round((SAMPLE_RATE * FAKE_PAUSE_MS) / 1000)
-  const dataBytes = total * 2
-  const wav = Buffer.alloc(44 + dataBytes)
-
-  wav.write('RIFF', 0)
-  wav.writeUInt32LE(36 + dataBytes, 4)
-  wav.write('WAVE', 8)
-  wav.write('fmt ', 12)
-  wav.writeUInt32LE(16, 16)
-  wav.writeUInt16LE(1, 20) // PCM
-  wav.writeUInt16LE(1, 22) // mono
-  wav.writeUInt32LE(SAMPLE_RATE, 24)
-  wav.writeUInt32LE(SAMPLE_RATE * 2, 28)
-  wav.writeUInt16LE(2, 32)
-  wav.writeUInt16LE(16, 34)
-  wav.write('data', 36)
-  wav.writeUInt32LE(dataBytes, 40)
-
+  const pcm = Buffer.alloc((speech + Math.round((SAMPLE_RATE * FAKE_PAUSE_MS) / 1000)) * 2)
   for (let index = 0; index < speech; index++) {
     const sample = Math.max(-1, Math.min(1, voiceSample(index / SAMPLE_RATE)))
-    wav.writeInt16LE(Math.round(sample * 32767), 44 + index * 2)
+    pcm.writeInt16LE(Math.round(sample * 32767), index * 2)
   }
-  return wav
+  return pcm
+}
+
+/** The sound as a WAV file, also used as a file to upload. `cycles` repeats voice and pause. */
+export function buildWav(cycles = 1): Buffer {
+  cyclePcm ??= buildCycle()
+  const dataBytes = cyclePcm.length * cycles
+  const header = Buffer.alloc(44)
+
+  header.write('RIFF', 0)
+  header.writeUInt32LE(36 + dataBytes, 4)
+  header.write('WAVE', 8)
+  header.write('fmt ', 12)
+  header.writeUInt32LE(16, 16)
+  header.writeUInt16LE(1, 20) // PCM
+  header.writeUInt16LE(1, 22) // mono
+  header.writeUInt32LE(SAMPLE_RATE, 24)
+  header.writeUInt32LE(SAMPLE_RATE * 2, 28)
+  header.writeUInt16LE(2, 32)
+  header.writeUInt16LE(16, 34)
+  header.write('data', 36)
+  header.writeUInt32LE(dataBytes, 40)
+
+  return Buffer.concat([header, ...Array.from({ length: cycles }, () => cyclePcm as Buffer)])
 }
 
 /** Writes the file outside the project and returns its path. */

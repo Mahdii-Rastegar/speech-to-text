@@ -27,7 +27,10 @@ const notices: Record<NoticeKind, string> = {
   'copy-failed': 'کپی انجام نشد. متن را انتخاب و دستی کپی کنید.',
   'ai-finished': 'پردازش AI تمام شد',
   'ai-failed': 'پردازش AI انجام نشد. متن خام دست‌نخورده است.',
-  'coming-soon': 'این بخش در فازهای بعدی اضافه می‌شود',
+  'file-finished': 'متن فایل آماده و ذخیره شد',
+  'file-no-speech': 'در این فایل صحبتی پیدا نشد',
+  'file-cancelled': 'تبدیل فایل لغو شد',
+  'history-unavailable': 'تاریخچه در دسترس نیست؛ جلسه‌ها فقط تا بسته شدن برنامه می‌مانند.',
   'session-deleted': 'جلسه حذف شد',
   'history-cleared': 'تاریخچه پاک شد',
   'key-not-saved': 'در نسخه‌ی نمایشی کلید ذخیره نمی‌شود',
@@ -76,6 +79,14 @@ const errors: Record<AppErrorKind, { title: string; body: string }> = {
     title: 'موتور محلی یا فایل مدل پیدا نشد',
     body: 'فایل‌های موتور محلی (whisper.cpp) و مدل باید در پوشه‌ی برنامه باشند.',
   },
+  'file-unreadable': {
+    title: 'این فایل خوانده نشد',
+    body: 'فایل صوتی نیست، قالبش پشتیبانی نمی‌شود یا خراب است. قالب‌های MP3، WAV، M4A، OGG و FLAC را امتحان کنید.',
+  },
+  'file-too-large': {
+    title: 'فایل خیلی بزرگ است',
+    body: 'فایل‌های تا ۳۰۰ مگابایت پذیرفته می‌شوند. فایل را به چند بخش کوتاه‌تر تقسیم کنید.',
+  },
   offline: {
     title: 'اتصال اینترنت برقرار نیست',
     body: 'موتور محلی بدون اینترنت کار می‌کند.',
@@ -119,6 +130,11 @@ export const fa = {
     noSignalHint:
       'از میکروفون هیچ صدایی نمی‌آید. بی‌صدا نبودن آن را بررسی کنید یا در تنظیمات میکروفون دیگری انتخاب کنید.',
     upload: 'آپلود فایل صوتی',
+    uploadLocked: 'هنگام ضبط نمی‌شود فایل فرستاد',
+    readingFile: 'در حال خواندن فایل…',
+    transcribingFile: 'در حال تبدیل فایل',
+    fileProgress: 'پیشرفت تبدیل فایل',
+    cancelFile: 'لغو تبدیل فایل',
   },
   ai: {
     group: 'پردازش بعد از ضبط',
@@ -149,6 +165,7 @@ export const fa = {
     summarizing: 'در حال خلاصه کردن…',
   },
   session: {
+    fromFile: 'از فایل',
     estimatedCost: 'هزینه‌ی تخمینی',
     cost: 'هزینه',
     dollars: 'دلار',

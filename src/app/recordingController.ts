@@ -1,16 +1,24 @@
 import { CAPTURE_SAMPLE_RATE, openMicrophone, type MicrophoneCapture } from '@/audio/microphone'
 import { SILENCE_DB } from '@/core/audio/signal'
 import { createVad } from '@/core/audio/vad'
-import { createAppError, toAppError, type AppError, type AppErrorKind } from '@/core/errors'
+import {
+  AppFailure,
+  createAppError,
+  toAppError,
+  type AppError,
+  type AppErrorKind,
+} from '@/core/errors'
 import { isBusy } from '@/core/recording/machine'
 import {
   addCosts,
   createSessionId,
+  type AudioSource,
   type LanguageSetting,
   type TranscriptionSession,
 } from '@/core/session'
 import type { Settings } from '@/core/settings'
 import { createChunkedLiveSession } from '@/core/stt/chunkedLive'
+import { transcribeRecording } from '@/core/stt/fileTranscription'
 import {
   joinSegments,
   type LiveEvent,
@@ -18,7 +26,7 @@ import {
   type STTProvider,
   type TranscriptionResult,
 } from '@/core/stt/provider'
-import { aiProcessor, FALLBACK_PROVIDER_ID, levelSource, providers } from './services'
+import { aiProcessor, decodeFile, FALLBACK_PROVIDER_ID, levelSource, providers } from './services'
 import { inputStore, resetInput } from './stores/inputStore'
 import { dispatchRecording, recordingStore } from './stores/recordingStore'
 import {
@@ -30,7 +38,7 @@ import {
   type ProcessingParts,
 } from './stores/sessionsStore'
 import { settingsStore, updateSettings } from './stores/settingsStore'
-import { notify, uiStore } from './stores/uiStore'
+import { notify, uiStore, type NoticeKind } from './stores/uiStore'
 
 /** Quieter than any open microphone in a real room: the input is muted or disconnected. */
 const NO_SIGNAL_DB = SILENCE_DB + 10
@@ -51,6 +59,11 @@ interface ActiveRun {
 }
 
 let activeRun: ActiveRun | null = null
+
+/** Cancels the file being turned into text; null when none is. */
+let fileRun: AbortController | null = null
+/** The file of the latest attempt, so "try again" repeats it. Null after a microphone recording. */
+let lastFile: Blob | null = null
 
 export function resolveProvider(settings: Settings): STTProvider {
   const provider = providers.get(settings.sttProviderId) ?? providers.get(FALLBACK_PROVIDER_ID)
@@ -128,6 +141,7 @@ async function beginRecording(): Promise<void> {
   const provider = resolveProvider(settings)
   const model = resolveModel(provider, settings)
 
+  lastFile = null
   sessionsStore.setState({ activeSessionId: null })
   uiStore.setState({ version: 'raw' })
   dispatchRecording({ type: 'START_REQUESTED' })
@@ -214,21 +228,44 @@ export async function stopRecording(): Promise<void> {
   endRun()
   dispatchRecording({ type: 'FINALIZED' })
 
+  keepTranscript(result, {
+    source: 'microphone',
+    providerId: run.providerId,
+    model: run.model,
+    language: run.language,
+    createdAt: run.createdAt,
+    saved: 'recording-stopped',
+    empty: 'nothing-recorded',
+  })
+}
+
+interface FinishedRun {
+  source: AudioSource
+  providerId: string
+  model: string
+  language: LanguageSetting
+  createdAt: string
+  /** What the user is told when the text was stored, and when there was none. */
+  saved: NoticeKind
+  empty: NoticeKind
+}
+
+/** Stores what a finished recording or file produced, and starts the AI step if it is on. */
+function keepTranscript(result: TranscriptionResult, run: FinishedRun): void {
   const rawTranscript = joinSegments(result.segments)
   if (rawTranscript.length === 0) {
     dispatchRecording({ type: 'RESET' })
-    notify('nothing-recorded')
+    notify(run.empty)
     return
   }
 
-  const now = new Date().toISOString()
   const session: TranscriptionSession = {
     id: createSessionId(),
     createdAt: run.createdAt,
-    updatedAt: now,
+    updatedAt: new Date().toISOString(),
     durationMs: recordingStore.getState().durationMs,
     language: run.language,
-    source: 'microphone',
+    source: run.source,
     provider: run.providerId,
     model: run.model,
     title: null,
@@ -239,7 +276,7 @@ export async function stopRecording(): Promise<void> {
     status: 'done',
   }
   addSession(session)
-  notify('recording-stopped')
+  notify(run.saved)
 
   const settings = settingsStore.getState()
   if (settings.aiEnabled) {
@@ -248,6 +285,90 @@ export async function stopRecording(): Promise<void> {
       summary: settings.summaryEnabled,
     })
   }
+}
+
+/**
+ * Turns an audio file into text with the chosen engine. The file is read on
+ * this device; text appears piece by piece and the result is stored like a recording.
+ */
+export function transcribeFile(file: Blob): void {
+  void runFile(file)
+}
+
+async function runFile(file: Blob): Promise<void> {
+  if (isBusy(recordingStore.getState().phase)) return
+
+  const settings = settingsStore.getState()
+  const provider = resolveProvider(settings)
+  const model = resolveModel(provider, settings)
+  const createdAt = new Date().toISOString()
+
+  const cancel = new AbortController()
+  fileRun = cancel
+  lastFile = file
+  sessionsStore.setState({ activeSessionId: null })
+  uiStore.setState({ view: 'main', version: 'raw', railOpen: false })
+  dispatchRecording({ type: 'START_REQUESTED', source: 'file' })
+
+  let result: TranscriptionResult
+  try {
+    const [validation, samples] = await Promise.all([
+      provider.validateConfiguration(),
+      decodeFile(file),
+    ])
+    if (cancel.signal.aborted) return
+    if (!validation.ok) throw new AppFailure(validation.error ?? createAppError('unknown'))
+
+    provider.warmUp?.(model)
+    dispatchRecording({
+      type: 'FILE_READY',
+      durationMs: Math.round((samples.length / CAPTURE_SAMPLE_RATE) * 1000),
+    })
+    result = await transcribeRecording(
+      provider,
+      samples,
+      CAPTURE_SAMPLE_RATE,
+      { model, language: settings.language, prompt: settings.glossary },
+      {
+        onSegment: (segment) => dispatchRecording({ type: 'FINAL', segment }),
+        onProgress: (fraction) => dispatchRecording({ type: 'PROGRESS', fraction }),
+      },
+      cancel.signal,
+    )
+  } catch (cause) {
+    // A cancelled run has already left the screen; whatever it throws afterwards is not news.
+    if (cancel.signal.aborted) return
+    fileRun = null
+    dispatchRecording({ type: 'FAILED', error: toAppError(cause), at: Date.now() })
+    return
+  }
+
+  fileRun = null
+  dispatchRecording({ type: 'FINALIZED' })
+  keepTranscript(result, {
+    source: 'file',
+    providerId: provider.id,
+    model,
+    language: settings.language,
+    createdAt,
+    saved: 'file-finished',
+    empty: 'file-no-speech',
+  })
+}
+
+/** Gives up on the file being turned into text. Nothing of it is stored. */
+export function cancelFile(): void {
+  if (!fileRun) return
+  fileRun.abort()
+  fileRun = null
+  dispatchRecording({ type: 'RESET' })
+  notify('file-cancelled')
+}
+
+/** Repeats the latest attempt: the same file again, or a new recording. */
+export function retry(): void {
+  if (lastFile) transcribeFile(lastFile)
+  else startRecording()
 }
 
 /**
@@ -293,6 +414,7 @@ export function selectSession(sessionId: string): void {
 /** Demo only: puts the main view into a chosen failure state so its message can be reviewed. */
 export function previewError(kind: AppErrorKind): void {
   if (isBusy(recordingStore.getState().phase)) return
+  lastFile = null
   sessionsStore.setState({ activeSessionId: null })
   dispatchRecording({ type: 'START_REQUESTED' })
   dispatchRecording({ type: 'FAILED', error: createAppError(kind), at: Date.now() })
@@ -310,5 +432,5 @@ export function switchToLocalAndRetry(): void {
   const local = providers.list().find((provider) => provider.getCapabilities().offline)
   if (!local) return
   selectProvider(local.id)
-  startRecording()
+  retry()
 }

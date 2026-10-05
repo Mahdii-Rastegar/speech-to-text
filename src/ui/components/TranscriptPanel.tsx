@@ -1,7 +1,7 @@
 import { RotateCcw, Settings, Sparkles, TriangleAlert } from 'lucide-react'
 import { Tabs } from 'radix-ui'
 import { memo, type ReactNode } from 'react'
-import { processSession, startRecording, switchToLocalAndRetry } from '@/app/recordingController'
+import { processSession, retry, switchToLocalAndRetry } from '@/app/recordingController'
 import { FALLBACK_PROVIDER_ID, isDemoProvider, providers } from '@/app/services'
 import { useRecording } from '@/app/stores/recordingStore'
 import { useSessions } from '@/app/stores/sessionsStore'
@@ -102,7 +102,7 @@ function ErrorPanel({ error }: { error: AppError }) {
           <p className="mt-0.5 text-[0.9375rem] leading-7 text-ink-2">{message.body}</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {error.retryable && (
-              <button type="button" onClick={startRecording} className="btn btn-primary">
+              <button type="button" onClick={retry} className="btn btn-primary">
                 <RotateCcw aria-hidden="true" className="size-4" />
                 {fa.errorActions.retry}
               </button>
@@ -177,6 +177,7 @@ function SessionHeading({ session }: { session: TranscriptionSession }) {
       {session.model}
     </bdi>,
   ]
+  if (session.source === 'file') items.unshift(<span key="source">{fa.session.fromFile}</span>)
   if (session.title) items.unshift(<span key="date">{recordedAt}</span>)
   if (session.cost) items.push(<span key="cost">{costLabel(session.cost)}</span>)
 

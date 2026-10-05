@@ -2,6 +2,7 @@ import { concatSamples } from '../audio/pcm'
 import { createVad } from '../audio/vad'
 import { toAppError } from '../errors'
 import { addCosts, type CostInfo } from '../session'
+import { contextPrompt, padClip } from './clip'
 import type {
   LiveEvent,
   LiveSession,
@@ -32,12 +33,8 @@ export interface ChunkedLiveConfig {
 
 /** A gap this short is a breath between words, not the end of a sentence. */
 const BREATH_MS = 200
-/** Engines misread very short clips, so short ones are padded with silence up to this. */
-const MIN_CLIP_MS = 1100
 /** An engine that needs longer than this per request cannot keep up, so interim text is given up. */
 const SLOW_REQUEST_MS = 6000
-/** How much of the text so far is handed to the engine as context for the next piece. */
-const CONTEXT_CHARS = 200
 
 interface Job {
   utterance: number
@@ -106,28 +103,15 @@ export function createChunkedLiveSession(
 
   const emit = (event: LiveEvent) => listeners.forEach((listener) => listener(event))
 
-  /** The glossary, then the end of what was said so far, so spelling and style carry over. */
-  const promptFor = (): string => {
-    const said = segments.map((segment) => segment.text).join(' ')
-    const tail =
-      said.length > CONTEXT_CHARS ? said.slice(-CONTEXT_CHARS).replace(/^\S*\s/, '') : said
-    return `${options.prompt ?? ''} ${tail}`.trim()
-  }
-
-  const padded = (samples: Float32Array): Float32Array => {
-    const minimum = toSamples(MIN_CLIP_MS)
-    if (samples.length >= minimum) return samples
-    const clip = new Float32Array(minimum)
-    clip.set(samples)
-    return clip
-  }
+  const promptFor = (): string =>
+    contextPrompt(options.prompt, segments.map((segment) => segment.text).join(' '))
 
   const work = async (job: Job): Promise<void> => {
     if (aborted || failure) return
     const began = Date.now()
     try {
       const result = await provider.transcribe(
-        { kind: 'pcm', sampleRate, samples: padded(job.samples) },
+        { kind: 'pcm', sampleRate, samples: padClip(job.samples, sampleRate) },
         { ...options, prompt: promptFor() },
         cancel.signal,
       )

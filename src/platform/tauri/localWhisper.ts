@@ -33,6 +33,15 @@ function toFailure(cause: unknown): AppFailure {
   )
 }
 
+/**
+ * Decodes an audio file with the native side's own codecs, to 16 kHz mono.
+ * For the formats the web view cannot read, Apple Lossless above all.
+ */
+export async function decodeWithNativeCodecs(bytes: ArrayBuffer): Promise<Float32Array> {
+  const samples = await invoke<ArrayBuffer>('audio_decode', new Uint8Array(bytes))
+  return new Float32Array(samples)
+}
+
 /** A small JSON header, its length in front of it, then the audio as 16-bit samples. */
 function buildPayload(header: object, samples: Float32Array): Uint8Array {
   const headerBytes = new TextEncoder().encode(JSON.stringify(header))

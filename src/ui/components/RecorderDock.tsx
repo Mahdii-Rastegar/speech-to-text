@@ -1,9 +1,15 @@
-import { AudioLines, MicOff, Upload } from 'lucide-react'
-import { startRecording, stopRecording } from '@/app/recordingController'
+import { AudioLines, MicOff, Upload, X } from 'lucide-react'
+import { useRef } from 'react'
+import {
+  cancelFile,
+  startRecording,
+  stopRecording,
+  transcribeFile,
+} from '@/app/recordingController'
 import { useInput } from '@/app/stores/inputStore'
 import { useRecording } from '@/app/stores/recordingStore'
-import { notify } from '@/app/stores/uiStore'
-import type { RecordingPhase } from '@/core/recording/machine'
+import { toPersianDigits } from '@/core/format/digits'
+import { isBusy, type RecordingPhase } from '@/core/recording/machine'
 import { cn, durationLabel } from '@/ui/format'
 import { useElapsed } from '@/ui/hooks/useElapsed'
 import { fa } from '@/ui/strings/fa'
@@ -63,6 +69,33 @@ function InputBadge() {
   )
 }
 
+/** What the browser's file dialog offers: sound files, and videos for their sound track. */
+const FILE_TYPES = 'audio/*,video/mp4,video/webm,.mp3,.wav,.m4a,.aac,.ogg,.opus,.flac,.webm,.mp4'
+
+/** How far a file is, as a bar and a number. */
+function FileProgress({ fraction, className }: { fraction: number; className?: string }) {
+  const percent = Math.round(fraction * 100)
+  return (
+    <div className={cn('flex w-48 max-w-full flex-col gap-1.5', className)}>
+      <div className="flex items-center justify-between gap-3 text-sm text-ink-2">
+        <span>{fa.recorder.transcribingFile}</span>
+        <span className="font-medium text-ink">{toPersianDigits(percent)}٪</span>
+      </div>
+      <progress
+        aria-label={fa.recorder.fileProgress}
+        max={100}
+        value={percent}
+        className={cn(
+          'h-1.5 w-full appearance-none overflow-hidden rounded-full bg-line-strong',
+          '[&::-webkit-progress-bar]:bg-transparent [&::-moz-progress-bar]:bg-live',
+          '[&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-live',
+          '[&::-webkit-progress-value]:transition-[width] [&::-webkit-progress-value]:duration-300',
+        )}
+      />
+    </div>
+  )
+}
+
 function RecorderStatus({
   phase,
   elapsedMs,
@@ -72,6 +105,15 @@ function RecorderStatus({
   elapsedMs: number
   className?: string
 }) {
+  const fromFile = useRecording((state) => state.source === 'file')
+  const progress = useRecording((state) => state.progress)
+
+  if (fromFile && phase === 'finalizing') {
+    return <FileProgress fraction={progress} className={className} />
+  }
+  if (fromFile && phase === 'starting') {
+    return <p className={cn('text-[0.9375rem] text-ink-2', className)}>{fa.recorder.readingFile}</p>
+  }
   if (phase === 'recording' || phase === 'finalizing') {
     return (
       <div className={cn('flex items-center gap-3', className)}>
@@ -103,6 +145,10 @@ export function RecorderDock() {
   const durationMs = useRecording((state) => state.durationMs)
   const elapsed = useElapsed(startedAt, phase === 'recording')
   const elapsedMs = phase === 'recording' ? elapsed : durationMs
+  const fromFile = useRecording((state) => state.source === 'file')
+  const fileInput = useRef<HTMLInputElement>(null)
+  const busy = isBusy(phase)
+  const workingOnFile = fromFile && busy
 
   return (
     <section
@@ -118,7 +164,8 @@ export function RecorderDock() {
       >
         <AiOptions className="[grid-area:ai] md:justify-start" />
         <RecordKey
-          phase={phase}
+          // A file has nothing to stop: the key just waits, as it does while a recording starts.
+          phase={workingOnFile ? 'starting' : phase}
           onStart={startRecording}
           onStop={() => void stopRecording()}
           className="[grid-area:key]"
@@ -129,15 +176,40 @@ export function RecorderDock() {
             elapsedMs={elapsedMs}
             className="[grid-area:status] min-h-7 justify-center justify-self-center md:justify-self-auto"
           />
-          <button
-            type="button"
-            onClick={() => notify('coming-soon')}
-            aria-label={fa.recorder.upload}
-            title={fa.recorder.upload}
-            className="icon-btn [grid-area:upload] justify-self-end"
-          >
-            <Upload aria-hidden="true" className="size-5" />
-          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept={FILE_TYPES}
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              // Cleared, so choosing the same file again counts as a change.
+              event.target.value = ''
+              if (file) transcribeFile(file)
+            }}
+          />
+          {workingOnFile ? (
+            <button
+              type="button"
+              onClick={cancelFile}
+              aria-label={fa.recorder.cancelFile}
+              title={fa.recorder.cancelFile}
+              className="icon-btn [grid-area:upload] justify-self-end hover:text-rec"
+            >
+              <X aria-hidden="true" className="size-5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              disabled={busy}
+              aria-label={fa.recorder.upload}
+              title={busy ? fa.recorder.uploadLocked : fa.recorder.upload}
+              className="icon-btn [grid-area:upload] justify-self-end disabled:opacity-40"
+            >
+              <Upload aria-hidden="true" className="size-5" />
+            </button>
+          )}
         </div>
       </div>
     </section>

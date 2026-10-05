@@ -16,6 +16,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# SQLite is compiled in, so the app needs no database installed on the computer.
+rusqlite = { version = "0.40", features = ["bundled"] }
+# Reads the audio files the web view cannot decode itself (Apple Lossless above all).
+symphonia = { version = "0.5", features = ["aac", "alac", "isomp4", "mp3"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [

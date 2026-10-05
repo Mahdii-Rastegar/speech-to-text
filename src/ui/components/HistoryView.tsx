@@ -110,6 +110,7 @@ function SessionRow({
 /** Every stored session, searchable, with copy and delete on each row. */
 export function HistoryView() {
   const sessions = useSessions((state) => state.sessions)
+  const loaded = useSessions((state) => state.loaded)
   const activeSessionId = useSessions((state) => state.activeSessionId)
   const busy = useRecording((state) => isBusy(state.phase))
   const now = useNow()
@@ -180,28 +181,30 @@ export function HistoryView() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className={`${COLUMN} pb-10`}>
-          {groups.length === 0 ? (
-            <p className="px-1 py-6 text-[0.9375rem] text-ink-2">
-              {searching ? fa.history.noResults : fa.history.empty}
-            </p>
-          ) : (
-            groups.map((group) => (
-              <section key={group.label}>
-                <h3 className="px-3.5 pt-4 pb-1.5 text-xs font-medium text-ink-3">{group.label}</h3>
-                <ul className="space-y-0.5">
-                  {group.sessions.map((session) => (
-                    <SessionRow
-                      key={session.id}
-                      session={session}
-                      active={session.id === activeSessionId}
-                      disabled={busy}
-                      onDelete={() => setPending({ kind: 'one', id: session.id })}
-                    />
-                  ))}
-                </ul>
-              </section>
-            ))
-          )}
+          {groups.length === 0
+            ? loaded && (
+                <p className="px-1 py-6 text-[0.9375rem] text-ink-2">
+                  {searching ? fa.history.noResults : fa.history.empty}
+                </p>
+              )
+            : groups.map((group) => (
+                <section key={group.label}>
+                  <h3 className="px-3.5 pt-4 pb-1.5 text-xs font-medium text-ink-3">
+                    {group.label}
+                  </h3>
+                  <ul className="space-y-0.5">
+                    {group.sessions.map((session) => (
+                      <SessionRow
+                        key={session.id}
+                        session={session}
+                        active={session.id === activeSessionId}
+                        disabled={busy}
+                        onDelete={() => setPending({ kind: 'one', id: session.id })}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))}
         </div>
       </div>
 

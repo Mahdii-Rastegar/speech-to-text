@@ -55,6 +55,7 @@ function SessionItem({
 /** Past sessions grouped by day. Opening one shows its transcript in the main view. */
 export function HistoryRail() {
   const sessions = useSessions((state) => state.sessions)
+  const loaded = useSessions((state) => state.loaded)
   const activeSessionId = useSessions((state) => state.activeSessionId)
   const busy = useRecording((state) => isBusy(state.phase))
   const view = useUi((state) => state.view)
@@ -78,26 +79,24 @@ export function HistoryRail() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-4">
-        {groups.length === 0 ? (
-          <p className="px-2.5 py-3 text-sm text-ink-3">{fa.history.empty}</p>
-        ) : (
-          groups.map((group) => (
-            <section key={group.label}>
-              <h2 className="px-2.5 pt-4 pb-1.5 text-xs font-medium text-ink-3">{group.label}</h2>
-              <ul>
-                {group.sessions.map((session) => (
-                  <li key={session.id}>
-                    <SessionItem
-                      session={session}
-                      active={view === 'main' && session.id === activeSessionId}
-                      disabled={busy}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))
-        )}
+        {groups.length === 0
+          ? loaded && <p className="px-2.5 py-3 text-sm text-ink-3">{fa.history.empty}</p>
+          : groups.map((group) => (
+              <section key={group.label}>
+                <h2 className="px-2.5 pt-4 pb-1.5 text-xs font-medium text-ink-3">{group.label}</h2>
+                <ul>
+                  {group.sessions.map((session) => (
+                    <li key={session.id}>
+                      <SessionItem
+                        session={session}
+                        active={view === 'main' && session.id === activeSessionId}
+                        disabled={busy}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
       </div>
 
       <div className="shrink-0 border-t border-line p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
