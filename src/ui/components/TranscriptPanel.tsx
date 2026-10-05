@@ -34,6 +34,8 @@ const COLUMN = 'mx-auto w-full max-w-[46rem] px-5 sm:px-8'
 function EmptyState() {
   const provider = useProvider()
   const demo = provider !== undefined && isDemoProvider(provider.id)
+  const offline = provider?.getCapabilities().offline ?? true
+  const note = demo ? fa.demo.note : offline ? fa.demo.localNote : fa.demo.cloudNote
 
   return (
     <div className={cn(COLUMN, 'flex min-h-full flex-col justify-center py-10')}>
@@ -49,7 +51,7 @@ function EmptyState() {
       <p className="mt-1 text-[0.9375rem] leading-7 text-ink-3">{fa.transcript.emptyBody}</p>
       <p className="mt-9 inline-flex w-fit items-center gap-2 rounded-full border border-line bg-backdrop/50 px-3 py-1.5 text-xs leading-5 text-ink-3">
         <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-ai" />
-        {demo ? fa.demo.note : fa.demo.localNote}
+        {note}
       </p>
     </div>
   )

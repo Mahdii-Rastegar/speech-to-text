@@ -4,9 +4,10 @@ import { createChatClient, DEFAULT_AI_MODELS } from '@/core/ai/chat'
 import type { AIProcessor } from '@/core/ai/processor'
 import { createChatAIProcessor } from '@/core/ai/providers/chat'
 import { createDemoAIProcessor } from '@/core/ai/providers/demo'
-import type { CloudAccess } from '@/core/cloud/transport'
+import { CLOUD_PROVIDERS, type CloudAccess } from '@/core/cloud/transport'
 import type { HistoryRepository } from '@/core/history/repository'
 import type { Settings } from '@/core/settings'
+import { createCloudSttProvider } from '@/core/stt/providers/cloud'
 import { createDemoProvider } from '@/core/stt/providers/demo'
 import { createProviderRegistry } from '@/core/stt/registry'
 import { createNativeCloud } from '@/platform/tauri/cloud'
@@ -22,9 +23,9 @@ import { createBrowserHistory } from '@/platform/web/history'
 /**
  * Composition root: the one place that decides which engines exist and where
  * History is kept. The desktop app has the real local engine, a real key
- * store and the real AI step. The cloud speech engines are still scripted
- * demos, and so are the local engine and the AI step in the browser. The
- * microphone, its level and History are real everywhere.
+ * store, and the real cloud engines and AI step on top of it. The browser has
+ * nowhere safe for a key yet, so its engines and its AI step are scripted
+ * demos. The microphone, its level and History are real everywhere.
  */
 
 /** Made-up list price so the cloud-styled demo can show an estimated cost. */
@@ -38,6 +39,9 @@ export const FALLBACK_PROVIDER_ID = nativeEngine ? LOCAL_WHISPER_ID : 'demo-loca
 /** Engines that play a script instead of recognizing speech. */
 export const isDemoProvider = (id: string): boolean => id.startsWith('demo-')
 
+/** Keys and requests for the cloud services. Null where keys cannot be kept safely yet. */
+export const cloud: CloudAccess | null = nativeEngine ? createNativeCloud() : null
+
 export const providers = createProviderRegistry()
 
 providers.register(
@@ -50,26 +54,27 @@ providers.register(
         usdPerAudioSecond: null,
       }),
 )
-providers.register(
-  createDemoProvider({
-    id: 'demo-cloud',
-    kind: 'cloud',
-    models: [{ id: 'whisper-large-v3' }],
-    usdPerAudioSecond: DEMO_CLOUD_USD_PER_SECOND,
-  }),
-)
-providers.register(
-  createDemoProvider({
-    id: 'demo-failing',
-    kind: 'cloud',
-    models: [{ id: 'whisper-large-v3' }],
-    usdPerAudioSecond: DEMO_CLOUD_USD_PER_SECOND,
-    failAfterMs: 2600,
-  }),
-)
-
-/** Keys and requests for the cloud services. Null where keys cannot be kept safely yet. */
-export const cloud: CloudAccess | null = nativeEngine ? createNativeCloud() : null
+if (cloud) {
+  for (const service of CLOUD_PROVIDERS) providers.register(createCloudSttProvider(service, cloud))
+} else {
+  providers.register(
+    createDemoProvider({
+      id: 'demo-cloud',
+      kind: 'cloud',
+      models: [{ id: 'whisper-large-v3' }],
+      usdPerAudioSecond: DEMO_CLOUD_USD_PER_SECOND,
+    }),
+  )
+  providers.register(
+    createDemoProvider({
+      id: 'demo-failing',
+      kind: 'cloud',
+      models: [{ id: 'whisper-large-v3' }],
+      usdPerAudioSecond: DEMO_CLOUD_USD_PER_SECOND,
+      failAfterMs: 2600,
+    }),
+  )
+}
 
 const demoAiProcessor = createDemoAIProcessor()
 

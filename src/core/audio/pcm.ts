@@ -18,3 +18,31 @@ export function toPcm16(samples: Float32Array): Int16Array {
   }
   return pcm
 }
+
+/** A mono signal as a 16-bit WAV file, the one format every cloud speech service reads. */
+export function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array {
+  const HEADER_BYTES = 44
+  const pcm = toPcm16(samples)
+  const wav = new Uint8Array(HEADER_BYTES + pcm.byteLength)
+  const view = new DataView(wav.buffer)
+  const ascii = (offset: number, text: string) => {
+    for (let index = 0; index < text.length; index++) wav[offset + index] = text.charCodeAt(index)
+  }
+
+  ascii(0, 'RIFF')
+  view.setUint32(4, wav.length - 8, true)
+  ascii(8, 'WAVEfmt ')
+  view.setUint32(16, 16, true) // length of the format block
+  view.setUint16(20, 1, true) // uncompressed PCM
+  view.setUint16(22, 1, true) // one channel
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, sampleRate * 2, true) // bytes per second
+  view.setUint16(32, 2, true) // bytes per sample
+  view.setUint16(34, 16, true) // bits per sample
+  ascii(36, 'data')
+  view.setUint32(40, pcm.byteLength, true)
+  for (let index = 0; index < pcm.length; index++) {
+    view.setInt16(HEADER_BYTES + index * 2, pcm[index] ?? 0, true)
+  }
+  return wav
+}

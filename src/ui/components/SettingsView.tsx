@@ -13,12 +13,12 @@ import {
 } from 'lucide-react'
 import { RadioGroup } from 'radix-ui'
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
-import { previewError } from '@/app/recordingController'
+import { previewError, resolveModel } from '@/app/recordingController'
 import { cloud, FALLBACK_PROVIDER_ID, providers } from '@/app/services'
 import { removeKey, saveKey, testKey, useKeys } from '@/app/stores/keysStore'
 import { useRecording } from '@/app/stores/recordingStore'
 import { clearSessions, useSessions } from '@/app/stores/sessionsStore'
-import { updateSettings, useSettings } from '@/app/stores/settingsStore'
+import { settingsStore, updateSettings, useSettings } from '@/app/stores/settingsStore'
 import { notify } from '@/app/stores/uiStore'
 import {
   listMicrophones,
@@ -27,7 +27,7 @@ import {
   type MicrophoneInfo,
 } from '@/audio/devices'
 import { DEFAULT_AI_MODELS } from '@/core/ai/chat'
-import { CLOUD_PROVIDERS, type CloudProviderId } from '@/core/cloud/transport'
+import { CLOUD_PROVIDERS, isCloudProvider, type CloudProviderId } from '@/core/cloud/transport'
 import type { AppErrorKind } from '@/core/errors'
 import { toPersianDigits } from '@/core/format/digits'
 import { isBusy } from '@/core/recording/machine'
@@ -106,8 +106,15 @@ function EngineSection() {
   const busy = useRecording((state) => isBusy(state.phase))
   const engineHeadingId = useId()
   const languageHeadingId = useId()
+  const modelHeadingId = useId()
   const provider = providers.get(providerId) ?? providers.get(FALLBACK_PROVIDER_ID)
   const offline = provider?.getCapabilities().offline ?? true
+  // Subscribed to, so the choice below follows the setting; the value itself is resolved.
+  useSettings((settings) => settings.sttModel)
+  const model = provider ? resolveModel(provider, settingsStore.getState()) : ''
+  const keyMissing = useKeys((keys) =>
+    provider && isCloudProvider(provider.id) ? !keys[provider.id] : false,
+  )
 
   return (
     <Section icon={AudioLines} title={fa.settings.engineSection}>
@@ -119,6 +126,32 @@ function EngineSection() {
       <p className="mt-2 text-xs leading-5 text-ink-3">
         {offline ? fa.status.localPrivacy : fa.status.cloudPrivacy}
       </p>
+      {keyMissing && <p className="mt-2 text-xs leading-5 text-rec">{fa.settings.sttKeyMissing}</p>}
+      {provider && provider.models.length > 1 && (
+        <>
+          <h4 id={modelHeadingId} className="mt-5 text-xs font-medium text-ink-3">
+            {fa.settings.sttModelTitle}
+          </h4>
+          <RadioGroup.Root
+            dir="rtl"
+            value={model}
+            onValueChange={(value) => updateSettings({ sttModel: value })}
+            disabled={busy}
+            aria-labelledby={modelHeadingId}
+            className="-mx-2.5 mt-2 grid gap-1"
+          >
+            {provider.models.map((entry) => (
+              <RadioGroup.Item key={entry.id} value={entry.id} className={RADIO_ROW}>
+                <span className="grid size-4 shrink-0 place-items-center rounded-full border border-line-strong group-data-[state=checked]:border-live">
+                  <RadioGroup.Indicator className="size-2 rounded-full bg-live" />
+                </span>
+                <bdi className="min-w-0 flex-1 truncate font-mono text-sm text-ink">{entry.id}</bdi>
+              </RadioGroup.Item>
+            ))}
+          </RadioGroup.Root>
+          <p className="mt-2 text-xs leading-5 text-ink-3">{fa.settings.sttModelHint}</p>
+        </>
+      )}
       <h4 id={languageHeadingId} className="mt-5 text-xs font-medium text-ink-3">
         {fa.status.languageTitle}
       </h4>

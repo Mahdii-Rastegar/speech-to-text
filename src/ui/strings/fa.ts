@@ -124,6 +124,8 @@ const providers: Record<string, { name: string; hint?: string }> = {
   'demo-local': { name: 'Whisper محلی' },
   'demo-cloud': { name: 'OpenRouter' },
   'demo-failing': { name: 'سرویس ناموجود', hint: 'برای دیدن حالت خطا' },
+  openrouter: { name: 'OpenRouter', hint: 'ابری، با کلید OpenRouter' },
+  google: { name: 'Google Gemini', hint: 'ابری، با کلید Google AI Studio' },
 }
 
 const cloudProviders: Record<CloudProviderId, { name: string; keyLabel: string; hint: string }> = {
@@ -145,6 +147,8 @@ export const fa = {
     note: 'نسخه‌ی نمایشی: میکروفون واقعی است، ولی متن‌ها هنوز نمونه‌اند. صدا ذخیره یا ارسال نمی‌شود.',
     localNote:
       'موتور محلی: متن روی همین دستگاه و بدون اینترنت ساخته می‌شود. صدا ذخیره یا ارسال نمی‌شود.',
+    cloudNote:
+      'موتور ابری: صدا برای تبدیل به سرویس انتخاب‌شده فرستاده می‌شود و در برنامه ذخیره نمی‌شود.',
   },
   recorder: {
     region: 'ضبط',
@@ -244,6 +248,9 @@ export const fa = {
   settings: {
     title: 'تنظیمات',
     engineSection: 'موتور و زبان',
+    sttModelTitle: 'مدل',
+    sttModelHint: 'هزینه و دقت مدل‌ها فرق دارد؛ هزینه‌ی هر جلسه کنار متن آن نوشته می‌شود.',
+    sttKeyMissing: 'برای این سرویس هنوز کلیدی ذخیره نشده است. آن را در بخش «کلید API» وارد کنید.',
     microphoneSection: 'میکروفون',
     microphoneDefault: 'پیش‌فرض سیستم',
     microphoneDefaultHint: 'همان ورودی‌ای که در تنظیمات صدای سیستم انتخاب شده است.',
@@ -256,7 +263,7 @@ export const fa = {
     glossarySection: 'واژه‌نامه‌ی شخصی',
     glossaryLabel: 'اسم‌ها و اصطلاح‌هایی که زیاد می‌گویید',
     glossaryHint:
-      'با ویرگول جدا کنید. موتور محلی این کلمه‌ها را درست‌تر می‌نویسد، مخصوصاً اصطلاح‌های انگلیسی وسط جمله‌ی فارسی.',
+      'با ویرگول جدا کنید. موتور این کلمه‌ها را درست‌تر می‌نویسد، مخصوصاً اصطلاح‌های انگلیسی وسط جمله‌ی فارسی. بعضی مدل‌های ابری آن را نادیده می‌گیرند.',
     glossaryPlaceholder: 'API, Deploy, prompt, backend',
     aiSection: 'پردازش با AI',
     aiMasterHint:
